@@ -1,5 +1,6 @@
-CXX=g++
+CXX=g++-4.3
 
 chess : main.cc main.hh Makefile
-	${CXX} main.cc -g -Wall -o chess -pipe -pg
-	#${CXX} main.cc -O3 -g -Wall -o chess -pipe -funroll_loops -fomit-frame-pointer
+	#${CXX} main.cc -Wall -o chess -pipe -ggdb3
+	${CXX} main.cc -Wall -o chess -pipe -g -pg
+	#${CXX} main.cc -O3 -Wall -o chess -pipe -fomit-frame-pointer -march=native
