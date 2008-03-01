@@ -32,7 +32,7 @@ using namespace std;
 #define OPPONENT(p) ((p)^1)
 #define VALID_POS(l,c) ((l)>=0 and (l)<8 and (c)>=0 and (c)<8)
 
-#define dificuldade 8
+#define dificuldade 6
 
 FILE* log_file = NULL;
 
@@ -54,6 +54,8 @@ struct _coord {
 
 struct _pos
 {
+    _pos() { }
+
     int8_t id;
     int8_t id2;
     int8_t type;
@@ -61,6 +63,8 @@ struct _pos
 };
 
 struct MoveInfo {
+    MoveInfo() { }
+
     int8_t pro;
     int8_t castle;
     int8_t passan;
@@ -991,7 +995,7 @@ struct board_code {
         for(int l=0;l<8;++l) {
             code[l] = 0;
             for(int c=0;c<8;++c) {
-                code[l] = (code[l]<<4) | (board.b[l][c].owner | (board.b[l][c].type<<1));
+                code[l] = (code[l]<<4) | (board.b[l][c].owner + (board.b[l][c].type) * 3);
             }
         }
     }
@@ -1008,9 +1012,13 @@ struct board_code {
     }
 };
 
+board_code enc() {
+    board_code bc;
+    bc.encode();
+    return bc;
+}
+
 _move ComputerPlay(int depth);
-int Compute(int depth, int min=-0x7fffff00, int max=0x7fffff00);
-int EvaluatePos();
 
 #define HASH_UNUSED 0
 #define HASH_LOWERBOUND 1
@@ -1022,8 +1030,8 @@ struct hash_slot {
     int32_t score;
     uint8_t depth;
     uint8_t type;
-    //board_code code;
     _move move;
+    board_code code;
 };
 
 static const unsigned long prime_list[] = {
@@ -1218,11 +1226,9 @@ hash_slot* hash_find(int depth) {
     if(cand->type == HASH_UNUSED or cand->hash_key != board.hash_key or cand->depth < depth) {
         return 0;
     }
-    /*board_code bc;
-    bc.encode();
-    if(bc != cand->code) {
+    if(enc() != cand->code) {
         false_hit ++;
-    }*/
+    }
     hash_hit ++;
     return cand;
 }
@@ -1239,11 +1245,9 @@ void hash_insert(int depth, int score, _move move, uint8_t type) {
         cand->type = type;
         cand->move = move;
     } else {
-        /*board_code bc;
-        bc.encode();
-        if(bc != cand->code) {
+        if(enc() != cand->code) {
             false_hit ++;
-        }*/
+        }
         /* TODO update a slot */
         /*if(depth == cand->depth) {
             if(board.turn == WHITE and score > cand->score) {
@@ -1256,7 +1260,7 @@ void hash_insert(int depth, int score, _move move, uint8_t type) {
             }
         }*/
     }
-    /*cand->code.encode();*/
+    cand->code.encode();
 }
 
 int score_move(const _move& m) {
@@ -1286,8 +1290,10 @@ void ordena_move(_move* begin, _move* end) {
 }
 
 #define SEARCH_QUIESCENT 1
+#define DISABLE_HASH 2
+#define INFINITE_SCORE (mate_score + 128)
 
-int search(int depth, int alfa = -0x7fffffff, int beta = 0x7fffffff, int flags = 0) {
+int search(int depth, int alfa = -INFINITE_SCORE, int beta = INFINITE_SCORE, int flags = 0) {
     int n, t;
     uint8_t type;
     MoveInfo mi;
@@ -1295,20 +1301,27 @@ int search(int depth, int alfa = -0x7fffffff, int beta = 0x7fffffff, int flags =
     _move list[512];
     _move best_move;
     int best_score;
-    
-    best_score = -(mate_score + 128);
+
+    best_score = -INFINITE_SCORE;
     best_move.ol = best_move.oc = best_move.dl = best_move.dc = 0;
 
     /* consulta a tabela hash */
-    if((slot = hash_find(depth)) != 0) {
+    if(not (flags & DISABLE_HASH) and (slot = hash_find(depth)) != 0) {
         if(slot->type == HASH_EXACT) {
             ++ exact_hit;
+            t = search(depth, -INFINITE_SCORE, INFINITE_SCORE, flags | DISABLE_HASH);
+            if(slot->score != t) {
+                printf("merda! 1\n");
+            }
             return slot->score;
-        } else if(slot->type == HASH_UPPERBOUND) {
+        } /*else if(slot->type == HASH_UPPERBOUND) {
             beta = min(beta, slot->score);
         } else {
             alfa = max(alfa, slot->score);
         }
+        if(alfa >= beta) {
+            return slot->score;
+        }*/
     }
 
     /* em quiescent testa apenas as capturas */
@@ -1322,6 +1335,12 @@ int search(int depth, int alfa = -0x7fffffff, int beta = 0x7fffffff, int flags =
 
     for(int i=0;i<n;i++) {
         node_count++;
+
+        /* loga o progresso */
+        /*if(depth == dificuldade) {
+            fprintf(log_file, "%d/%d\n", i, n);
+            fflush(log_file);
+        }*/
 
         /* poda */
         if(best_score >= beta) {
@@ -1358,20 +1377,25 @@ int search(int depth, int alfa = -0x7fffffff, int beta = 0x7fffffff, int flags =
             best_score = t;
             best_move = list[i];
         }
-
     }
 
     /* registra resultado na tabela hash */
-    if(best_score <= alfa) {
-        type = HASH_UPPERBOUND;
-    } else if(best_score >= beta) {
-        type = HASH_LOWERBOUND;
-    } else {
-        type = HASH_EXACT;
+    if(not (flags & DISABLE_HASH) and not (flags & SEARCH_QUIESCENT)) {
+        if(best_score <= alfa) {
+            type = HASH_UPPERBOUND;
+        } else if(best_score >= beta) {
+            type = HASH_LOWERBOUND;
+        } else {
+            type = HASH_EXACT;
+            t = search(depth, -INFINITE_SCORE, INFINITE_SCORE, flags | DISABLE_HASH);
+            if(t != best_score) {
+                printf("merda 2\n");
+            }
+        }
+        //if(best_score <= -mate_score)
+        //    type = HASH_EXACT;
+        hash_insert(depth, best_score, best_move, type);
     }
-    //if(best_score <= -mate_score)
-    //    type = HASH_EXACT;
-    hash_insert(depth, best_score, best_move, type);
 
     return best_score;
 }
@@ -1417,7 +1441,7 @@ _move ComputerPlay(int depth)
         for(int i=0;i<depth;++i) {
             mis[i] = board.move(slot->move.ol,slot->move.oc,slot->move.dl,slot->move.dc);
             hist[i] = slot->move;
-            if(i == depth - 1) {
+            if(i == depth - 1 and not board.done()) {
                 for(;i>=0;--i) {
                     board.volta(hist[i].ol, hist[i].oc, hist[i].dl, hist[i].dc, mis[i]);
                 }
