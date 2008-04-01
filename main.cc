@@ -7,7 +7,6 @@
 #include <cmath>
 #include <string>
 #include <stdint.h>
-#include <cassert>
 
 #include <boost/random/mersenne_twister.hpp>
 #include <boost/random/uniform_int.hpp>
@@ -33,18 +32,37 @@ using namespace std;
 #define VALID_POS(l,c) ((l)>=0 and (l)<8 and (c)>=0 and (c)<8)
 
 #define HASH_UNUSED 0
-#define HASH_LOWERBOUND 1
 #define HASH_UPPERBOUND 2
-#define HASH_EXACT 3
-#define HASH_QUIESCENT 4
+#define HASH_LOWERBOUND 3
+#define HASH_EXACT 4
 
-#define dificuldade 7
+#define dificuldade 6
+
+#ifdef _DEBUG
+  #define SUICIDE() { int* __i__ = 0; int __v__ = *__i__; *__i__ = __v__;}
+  #define ASSERT(VALUE) while(not (VALUE)) { SUICIDE(); }
+#else
+  #define SUICIDE()
+  #define ASSERT(VALUE)
+#endif
 
 FILE* log_file = NULL;
 
-struct _move
+struct Move
 {
-    uint8_t ol,oc,dl,dc;
+    Move(int8_t ol, int8_t oc, int8_t dl, int8_t dc) :
+        ol(ol), oc(oc), dl(dl), dc(dc) { }
+    Move() { }
+    int8_t ol,oc,dl,dc;
+    inline bool operator==(const Move& m) const {
+        return ol==m.ol and dl==m.dl and oc==m.oc and dc==m.dc;
+    }
+    inline bool operator!=(const Move& m) const {
+        return ol!=m.ol or dl!=m.dl or oc!=m.oc or dc!=m.dc;
+    }
+    inline bool is_valid() const {
+        return VALID_POS(ol, oc) and VALID_POS(dl, dc) and (ol != dl or oc != dc);
+    }
 };
 
 struct _peca
@@ -71,19 +89,19 @@ struct _pos
 struct MoveInfo {
     MoveInfo() { }
 
-    int8_t pro;
     int8_t castle;
-    int8_t passan;
-    int8_t captura;
+    bool fez_passan;
+    bool capturou;
+    bool promoveu;
     int8_t col_passan;
     _pos p;
 };
 
-const int material_table[3][7]={{   0,-100,-300,-300,-500,-900,  0},
-                                {   0, 100, 300, 300, 500, 900,  0},
-                                {   0,   0,   0,   0,   0,   0,  0}};
-
 const int mate_score = 100000;
+
+const int material_table[3][7]={{   0,-100,-300,-300,-500,-900, -mate_score },
+                                {   0, 100, 300, 300, 500, 900,  mate_score },
+                                {   0,   0,   0,   0,   0,   0,  0          }};
 
 const int dir[2] = {-1,1};
 
@@ -114,7 +132,7 @@ struct hash_slot {
     int32_t score;
     uint8_t depth;
     uint8_t type;
-    _move move;
+    Move move;
 
     /* debug */
     /*board_code code;
@@ -136,12 +154,12 @@ static const unsigned long prime_list[] = {
     1610612741ul, 3221225473ul, 4294967291ul
 };
 
-const uint32_t HASH_SIZE = 3145739;
+const uint32_t HASH_SIZE = 786433;
 
 hash_slot hash_table[2][HASH_SIZE];
 eval_hash_slot eval_hash_table[2][HASH_SIZE];
 
-void init() {
+void init_hash() {
     for(int l=0;l<8;++l) {
         for(int c=0;c<8;++c) {
             for(int owner=0;owner<2;++owner) {
@@ -176,7 +194,7 @@ void eval_hash_insert(uint64_t hash_key, int turn, int score) {
     cand->hash_key = hash_key;
 }
 
-void print_move(FILE* file, const _move& m) {
+void print_move(FILE* file, const Move& m) {
     fprintf(file,"%c%c%c%c", m.oc+'a',m.ol+'1',m.dc+'a',m.dl+'1');
 }
 
@@ -250,7 +268,6 @@ struct Board
                 break;
             }
         }
-
     }
 
 
@@ -344,63 +361,58 @@ struct Board
         b[l][c].type = t;
     }
 
-    MoveInfo move(int ol,int oc,int dl,int dc) {
+    MoveInfo move(Move m) {
         MoveInfo mi;
 
-        /*if(not checkBoard(__LINE__)) {
-            _move m;
-            m.ol=ol; m.oc=oc; m.dl=dl; m.dc=dc;
-            print_move(log_file, m);
-            exit(1);
-        }*/
+        ASSERT(checkBoard());
 
         history[move_count ++] = hash_key;
 
         /* copia peca capturada */
-        if(b[dl][dc].type != CLEAR) {
-            mi.p = b[dl][dc];
-            mi.captura = 1;
-            erasePeca(dl, dc);
+        if(b[m.dl][m.dc].type != CLEAR) {
+            mi.p = b[m.dl][m.dc];
+            mi.capturou = true;
+            erasePeca(m.dl, m.dc);
         } else {
-            mi.captura = 0;
+            mi.capturou = false;
         }
 
         /* movimenta a peca */
-        movePeca(ol, oc, dl, dc);
+        movePeca(m.ol, m.oc, m.dl, m.dc);
 
         /* promove */
-        if(b[dl][dc].type == PAWN and (dl==7 or dl==0)) {
-            setType(dl, dc, QUEEN);
-            mi.pro = 1;
+        if(b[m.dl][m.dc].type == PAWN and (m.dl==7 or m.dl==0)) {
+            setType(m.dl, m.dc, QUEEN);
+            mi.promoveu = true;
         } else {
-            mi.pro = 0;
+            mi.promoveu = false;
         }
 
         /* marca coluna de en passan */
         mi.col_passan = col_passan;
-        if(b[dl][dc].type == PAWN and (dl-ol==2 or dl-ol==-2)) {
-            col_passan = oc;
+        if(b[m.dl][m.dc].type == PAWN and (m.dl-m.ol==2 or m.dl-m.ol==-2)) {
+            col_passan = m.oc;
         } else {
             col_passan = -2;
         }
 
-        /* en passan */
-        if(b[dl][dc].type == PAWN and mi.captura == 0 and dc != oc) {
-            mi.p = b[ol][dc];
-            mi.passan = 1;
-            erasePeca(ol, dc);
+        /* faz en passan */
+        if(b[m.dl][m.dc].type == PAWN and (not mi.capturou) and m.dc != m.oc) {
+            mi.p = b[m.ol][m.dc];
+            mi.fez_passan = true;
+            erasePeca(m.ol, m.dc);
         } else {
-            mi.passan = 0;
+            mi.fez_passan = false;
         }
 
         /* faz roque */
         mi.castle = 0;
-        if(b[dl][dc].type == KING) {
-            if((dc-oc)==2) {
-                movePeca(dl,7,dl,5);
+        if(b[m.dl][m.dc].type == KING) {
+            if((m.dc-m.oc)==2) {
+                movePeca(m.dl,7,m.dl,5);
                 mi.castle = 1;
-            } else if((dc-oc)==-2) {
-                movePeca(dl,0,dl,3);
+            } else if((m.dc-m.oc)==-2) {
+                movePeca(m.dl,0,m.dl,3);
                 mi.castle = 1;
             }
         }
@@ -409,25 +421,43 @@ struct Board
         turn = OPPONENT(turn);
         hash_key ^= hash_code_turn;
 
-        //check_hash_key(__LINE__);
-        /*if(not checkBoard(__LINE__)) {
-            _move m;
-            m.ol=ol; m.oc=oc; m.dl=dl; m.dc=dc;
-            print_move(log_file, m);
-            exit(1);
-        }*/
+        ASSERT(checkBoard());
 
         return mi;
     }
 
-    void volta(int ol,int oc,int dl,int dc, MoveInfo mi) {
+    MoveInfo move_null() {
+        MoveInfo mi;
 
-        /*if(not checkBoard(__LINE__)) {
-            _move m;
-            m.ol=ol; m.oc=oc; m.dl=dl; m.dc=dc;
-            print_move(log_file, m);
-            exit(1);
-        }*/
+        /* historico */
+        history[move_count ++] = hash_key;
+
+        /* marca coluna de en passan */
+        mi.col_passan = col_passan;
+        col_passan = -2;
+
+        /* troca a vez */
+        turn = OPPONENT(turn);
+        hash_key ^= hash_code_turn;
+
+        return mi;
+    }
+
+    void volta_null(const MoveInfo& mi) {
+        /* volta coluna de en passan */
+        col_passan = mi.col_passan;
+
+        /* troca a vez */
+        turn = OPPONENT(turn);
+        hash_key ^= hash_code_turn;
+
+        /* historico */
+        move_count --;
+    }
+
+    void volta(Move m, const MoveInfo& mi) {
+
+        ASSERT(checkBoard());
 
         /* troca a vez */
         hash_key ^= hash_code_turn;
@@ -435,146 +465,148 @@ struct Board
 
         /* desfaz roque */
         if(mi.castle) {
-            if((dc-oc)==2) {
-                movePeca(dl,5,dl,7);
-            } else if((dc-oc)==-2) {
-                movePeca(dl,3,dl,0);
+            if((m.dc-m.oc)==2) {
+                movePeca(m.dl,5,m.dl,7);
+            } else if((m.dc-m.oc)==-2) {
+                movePeca(m.dl,3,m.dl,0);
             }
         }
 
         /* desfaz promocao */
-        if(mi.pro) {
-            setType(dl, dc, PAWN);
+        if(mi.promoveu) {
+            setType(m.dl, m.dc, PAWN);
         }
 
         /* desfaz passan */
-        if(mi.passan) {
-            insertPeca(ol, dc, mi.p.type, mi.p.owner);
+        if(mi.fez_passan) {
+            insertPeca(m.ol, m.dc, mi.p.type, mi.p.owner);
         }
 
         /* volta coluna de en passan */
         col_passan = mi.col_passan;
 
         /* volta a peca */
-        movePeca(dl, dc, ol, oc);
+        movePeca(m.dl, m.dc, m.ol, m.oc);
 
         /* volta peca capturada */
-        if(mi.captura) {
-            insertPeca(dl, dc, mi.p.type, mi.p.owner);
+        if(mi.capturou) {
+            insertPeca(m.dl, m.dc, mi.p.type, mi.p.owner);
         }
 
         --move_count;
 
-        //check_hash_key(__LINE__);
-        /*if(not checkBoard(__LINE__)) {
-            _move m;
-            m.ol=ol; m.oc=oc; m.dl=dl; m.dc=dc;
-            print_move(log_file, m);
-            exit(1);
-        }*/
-
+        ASSERT(checkBoard());
     }
 
 
-    bool validatePawn(int ol,int oc,int dl,int dc) {
-        if(b[ol][oc].owner == WHITE) {
-            if(dc == oc) {
-                if(dl - ol == 2) {
-                    return ol == 1 and b[2][oc].type == CLEAR and b[3][oc].type == CLEAR;
-                } else if(dl - ol == 1) {
-                    return b[dl][dc].type == CLEAR;
+    bool validatePawn(const Move& m) {
+        if(b[m.ol][m.oc].owner == WHITE) {
+            if(m.dc == m.oc) {
+                /* movimento para frente */
+                if(m.dl - m.ol == 2) {
+                    return m.ol == 1 and b[2][m.oc].type == CLEAR and b[3][m.oc].type == CLEAR;
+                } else if(m.dl - m.ol == 1) {
+                    return b[m.dl][m.dc].type == CLEAR;
                 } else {
                     return false;
                 }
-            } else if(oc - dc == 1 or oc - dc == -1) {
-                return dl - ol == 1 and b[dl][dc].owner == BLACK;
+            } else if((m.oc - m.dc == 1 or m.oc - m.dc == -1) and (m.dl - m.ol == 1)) {
+                /* captura e en passan */
+                return b[m.dl][m.dc].owner == BLACK or (m.ol == 4 and m.dc == col_passan);
             } else {
                 return false;
             }
         } else {
-            if(dc == oc) {
-                if(dl - ol == -2) {
-                    return ol == 6 and b[5][oc].type == CLEAR and b[4][oc].type == CLEAR;
-                } else if(dl - ol == -1) {
-                    return b[dl][dc].type == CLEAR;
+            if(m.dc == m.oc) {
+                /* movimento para frente */
+                if(m.dl - m.ol == -2) {
+                    return m.ol == 6 and b[5][m.oc].type == CLEAR and b[4][m.oc].type == CLEAR;
+                } else if(m.dl - m.ol == -1) {
+                    return b[m.dl][m.dc].type == CLEAR;
                 } else {
                     return false;
                 }
-            } else if(oc - dc == 1 or oc - dc == -1) {
-                return dl - ol == -1 and b[dl][dc].owner == WHITE;
+            } else if((m.oc - m.dc == 1 or m.oc - m.dc == -1) and (m.dl - m.ol == -1)) {
+                /* captura e en passan */
+                return b[m.dl][m.dc].owner == WHITE or (m.ol == 3 and m.dc == col_passan);
             } else {
                 return false;
             }
         }
     }
 
-    bool validateKnight(int ol,int oc,int dl,int dc) {
-        int t = (ol-dl)*(oc-dc);
-        return (t == 2 or t == -2) and (b[dl][dc].owner != b[ol][oc].owner);
+    bool validateKnight(const Move& m) {
+        int t = (m.ol-m.dl)*(m.oc-m.dc);
+        return (t == 2 or t == -2) and (b[m.dl][m.dc].owner != b[m.ol][m.oc].owner);
     }
 
-    bool validateBishop(int ol,int oc,int dl,int dc) {
+    bool validateBishop(const Move& m) {
         int di, dj;
-        if(abs(oc-dc) != abs(ol-dl))
+        if(abs(m.oc-m.dc) != abs(m.ol-m.dl))
             return false;
-        di = (dc>oc)?1:-1;
-        dj = (dl>ol)?1:-1;
-        for(int i = oc+di,j=ol+dj;i!=dc;i+=di, j+=dj)
+        di = (m.dc>m.oc)?1:-1;
+        dj = (m.dl>m.ol)?1:-1;
+        for(int i = m.oc+di,j=m.ol+dj;i!=m.dc;i+=di, j+=dj)
             if(b[j][i].type != CLEAR)
                 return false;
-        return b[dl][dc].owner != b[ol][oc].owner;
+        return b[m.dl][m.dc].owner != b[m.ol][m.oc].owner;
     }
 
-    bool validateKing(int ol,int oc,int dl,int dc) {
-        if(abs(oc-dc)==2) {
-            return validateCastle(ol, oc, dl, dc);
+    bool validateKing(const Move& m) {
+        if(m.oc-m.dc == 2 or m.oc-m.dc == -2) {
+            return validateCastle(m);
         }
-        if((abs(ol-dl)|abs(oc-dc))!=1)
+        if(m.ol-m.dl > 1 or m.ol-m.dl < -1 or m.oc-m.dc > 1 or m.oc-m.dc < -1)
             return false;
-        return b[dl][dc].owner != b[ol][oc].owner;
+        return b[m.dl][m.dc].owner != b[m.ol][m.oc].owner;
     }
 
-    bool validateRook(int ol,int oc,int dl,int dc) {
+    bool validateRook(Move m) {
         int di, dj;
-        if(!((oc!=dc) ^ (ol!=dl)))
+        if(!((m.oc!=m.dc) ^ (m.ol!=m.dl)))
             return false;
         di=dj=0;
-        if(dc>oc)
+        if(m.dc>m.oc)
             di=1;
-        else if(dc<oc)
+        else if(m.dc<m.oc)
             di=-1;
-        if(dl>ol)
+        if(m.dl>m.ol)
             dj=1;
-        else if(dl<ol)
+        else if(m.dl<m.ol)
             dj=-1;
-        for(int i=oc+di,j=ol+dj;i!=dc or j!=dl;i+=di, j+=dj)
+        for(int i=m.oc+di,j=m.ol+dj;i!=m.dc or j!=m.dl;i+=di, j+=dj)
             if(b[j][i].type)
                 return false;
-        return b[dl][dc].owner != b[ol][oc].owner;;
+        return b[m.dl][m.dc].owner != b[m.ol][m.oc].owner;;
     }
 
-    bool validateQueen(int ol,int oc,int dl,int dc) {
-        return validateBishop(ol, oc, dl, dc) or
-            validateRook(ol, oc, dl, dc);
+    bool validateQueen(const Move& m) {
+        return validateBishop(m) or
+            validateRook(m);
     }
 
-    bool validateMove(int ol,int oc,int dl,int dc) {
-        if(b[ol][oc].owner != turn) {
+    bool validateMove(const Move& m) {
+        /* verifica a vez */
+        if(b[m.ol][m.oc].owner != turn) {
             return false;
         }
-        switch(b[ol][oc].type) {
+        /* verifica jogada sem sentido */
+        if(m.ol == m.dl and m.oc == m.dc) {
+            return false;
+        }
+        switch(b[m.ol][m.oc].type) {
             case PAWN:
-                return validatePawn(ol, oc, dl, dc);
+                return validatePawn(m);
             case KNIGHT:
-                return validateKnight(ol, oc, dl, dc);
+                return validateKnight(m);
             case BISHOP:
-                return validateBishop(ol, oc, dl, dc);
-            case KING:
-                return validateKing(ol, oc, dl, dc);
+                return validateBishop(m);
             case ROOK:
-                return validateRook(ol, oc, dl, dc);
+                return validateRook(m);
             case QUEEN:
-                return validateQueen(ol, oc, dl, dc);
+                return validateQueen(m);
+            case KING:
+                return validateKing(m);
             default:
                 /* Isso não deve acontecer */
                 exit(1);
@@ -582,7 +614,8 @@ struct Board
     }
 
     std::string getFen() {
-        const char tabela[3][7]={{'1','p','n','b','r','q','k'},
+        const char tabela[3][7]=
+           {{'1','p','n','b','r','q','k'},
             {'1','P','N','B','R','Q','K'},
             {'1','1','1','1','1','1','1'}};
 
@@ -604,7 +637,7 @@ struct Board
 
     void print(FILE * f)
     {
-        const char tabela[7]={' ','P','T','C','B','D','R'};
+        const char tabela[7]={' ','P','C','B','T','D','R'};
         const char tabela2[3]={'P','B',' '};
 
         int i;
@@ -659,7 +692,7 @@ struct Board
     }
 
 
-    bool checkBoard(int line = 0)
+    bool checkBoard()
     {
         int i,j,n;
         for(i=0,n=0;i<8;i++) {
@@ -669,13 +702,13 @@ struct Board
             }
         }
         if(n!=npeca) {
-            fprintf(log_file,"%d :Contagem nao bate\n", line);
+            fprintf(log_file,"Contagem nao bate\n");
             print(log_file);
             return false;
         }
         for(i=0;i<npeca;i++) {
             if(b[peca[i].l][peca[i].c].type!=peca[i].type or b[peca[i].l][peca[i].c].owner!=peca[i].owner or b[peca[i].l][peca[i].c].id!=i) {
-                fprintf(log_file,"%d: (%d,%d) -> peca(type=%d,owner=%d,id=%d) Board(type=%d,owner=%d,id=%d)\n",line,peca[i].l,peca[i].c,peca[i].type,peca[i].owner,i,b[peca[i].l][peca[i].c].type,b[peca[i].l][peca[i].c].owner,b[peca[i].l][peca[i].c].id);
+                fprintf(log_file,"(%d,%d) -> peca(type=%d,owner=%d,id=%d) Board(type=%d,owner=%d,id=%d)\n",peca[i].l,peca[i].c,peca[i].type,peca[i].owner,i,b[peca[i].l][peca[i].c].type,b[peca[i].l][peca[i].c].owner,b[peca[i].l][peca[i].c].id);
                 print(log_file);
                 return false;
             }
@@ -688,8 +721,8 @@ struct Board
                             b[peca_table[t][p][i].l][peca_table[t][p][i].c].id2 != i) {
                         int l = peca_table[t][p][i].l;
                         int c = peca_table[t][p][i].c;
-                        fprintf(log_file, "%d: peca_table nao bate\n", line);
-                        fprintf(log_file,"%d: peca_table[%d][%d][%d] = (l=%d,c=%d) b(type=%d,owner=%d,id2=%d)\n",line,t, p, i, l, c, b[l][c].type,b[l][c].owner,b[l][c].id2);
+                        fprintf(log_file, "peca_table nao bate\n");
+                        fprintf(log_file,"peca_table[%d][%d][%d] = (l=%d,c=%d) b(type=%d,owner=%d,id2=%d)\n",t, p, i, l, c, b[l][c].type,b[l][c].owner,b[l][c].id2);
                         print(log_file);
                         return false;
                     }
@@ -699,13 +732,23 @@ struct Board
 
         for(int l=0;l<8;++l) {
             for(int c=0;c<8;++c) {
+                if(b[l][c].type == CLEAR and b[l][c].owner != NONE) {
+                    fprintf(log_file, "%d %d dono de posicao vazia\n", l, c);
+                    print(log_file);
+                    return false;
+                }
+                if(b[l][c].type != CLEAR and b[l][c].owner == NONE) {
+                    fprintf(log_file, "%d %d peca sem dono\n", l, c);
+                    print(log_file);
+                    return false;
+                }
                 if(b[l][c].type == CLEAR)
                     continue;
-                int o = (b[l][c].owner+1)/2;
+                int o = b[l][c].owner;
                 if(peca_table[o][b[l][c].type][b[l][c].id2].l != l or
                         peca_table[o][b[l][c].type][b[l][c].id2].c != c) {
-                    fprintf(log_file, "%d: peca_table nao bate\n", line);
-                    fprintf(log_file,"%d: peca_table[%d][%d][%d] = (l=%d,c=%d) b = (type=%d,owner=%d,id2=%d)\n",line,o,b[l][c].type,b[l][c].id2, l, c, b[l][c].type,b[l][c].owner,b[l][c].id2);
+                    fprintf(log_file, "peca_table nao bate\n");
+                    fprintf(log_file,"peca_table[%d][%d][%d] = (l=%d,c=%d) b = (type=%d,owner=%d,id2=%d)\n",o,b[l][c].type,b[l][c].id2, l, c, b[l][c].type,b[l][c].owner,b[l][c].id2);
                     print(log_file);
                     return false;
                 }
@@ -713,7 +756,7 @@ struct Board
                         peca[b[l][c].id].l != l or
                         peca[b[l][c].id].c != c or
                         peca[b[l][c].id].owner != b[l][c].owner) {
-                    fprintf(log_file,"%d: peca[%d] = (type=%d,owner=%d) b[%d][%d] = (type=%d,owner=%d,id=%d)\n",line,b[l][c].id, peca[b[l][c].id].type,peca[b[l][c].type].owner, l, c, b[l][c].type, b[l][c].owner, b[l][c].id);
+                    fprintf(log_file,"peca[%d] = (type=%d,owner=%d) b[%d][%d] = (type=%d,owner=%d,id=%d)\n",b[l][c].id, peca[b[l][c].id].type,peca[b[l][c].type].owner, l, c, b[l][c].type, b[l][c].owner, b[l][c].id);
                     print(log_file);
                     return false;
                 }
@@ -725,49 +768,49 @@ struct Board
     bool checkAttack(int l, int c, int player)
     {
         for(int i=0;i<size_table[player][PAWN];++i) {
-            if(validatePawn(peca_table[player][PAWN][i].l, peca_table[player][PAWN][i].c, l, c))
+            if(validatePawn(Move(peca_table[player][PAWN][i].l, peca_table[player][PAWN][i].c, l, c)))
                 return true;
         }
         for(int i=0;i<size_table[player][KNIGHT];++i) {
-            if(validateKnight(peca_table[player][KNIGHT][i].l, peca_table[player][KNIGHT][i].c, l, c))
+            if(validateKnight(Move(peca_table[player][KNIGHT][i].l, peca_table[player][KNIGHT][i].c, l, c)))
                 return true;
         }
         for(int i=0;i<size_table[player][BISHOP];++i) {
-            if(validateBishop(peca_table[player][BISHOP][i].l, peca_table[player][BISHOP][i].c, l, c))
+            if(validateBishop(Move(peca_table[player][BISHOP][i].l, peca_table[player][BISHOP][i].c, l, c)))
                 return true;
         }
         for(int i=0;i<size_table[player][ROOK];++i) {
-            if(validateRook(peca_table[player][ROOK][i].l, peca_table[player][ROOK][i].c, l, c))
+            if(validateRook(Move(peca_table[player][ROOK][i].l, peca_table[player][ROOK][i].c, l, c)))
                 return true;
         }
         for(int i=0;i<size_table[player][QUEEN];++i) {
-            if(validateQueen(peca_table[player][QUEEN][i].l, peca_table[player][QUEEN][i].c, l, c))
+            if(validateQueen(Move(peca_table[player][QUEEN][i].l, peca_table[player][QUEEN][i].c, l, c)))
                 return true;
         }
         for(int i=0;i<size_table[player][KING];++i) {
-            if(validateKing(peca_table[player][KING][i].l, peca_table[player][KING][i].c, l, c))
+            if(validateKing(Move(peca_table[player][KING][i].l, peca_table[player][KING][i].c, l, c)))
                 return true;
         }
         return false;
     }
 
-    bool validateCastle(int ol, int oc, int dl, int dc)
+    bool validateCastle(const Move& m)
     {
         int torre;
-        if(dc-oc == 2)
+        if(m.dc-m.oc == 2)
             torre = 7;
-        else if(dc-oc == -2)
-            torre = 1;
+        else if(m.dc-m.oc == -2)
+            torre = 0;
         else
             return false;
-        if((b[ol][oc].owner == WHITE and oc != 0) or (b[ol][oc].owner == BLACK and oc != 7))
+        if((b[m.ol][m.oc].owner == WHITE and m.ol != 0) or (b[m.ol][m.oc].owner == BLACK and m.ol != 7))
             return false;
-        if(b[ol][torre].type != ROOK or b[ol][oc].owner != b[ol][torre].owner)
+        if(b[m.ol][torre].type != ROOK or b[m.ol][m.oc].owner != b[m.ol][torre].owner)
             return false;
-        if(b[dl][dc].type != CLEAR or b[dl][(dc+oc)/2].type != CLEAR)
+        if(b[m.dl][m.dc].type != CLEAR or b[m.dl][(m.dc+m.oc)/2].type != CLEAR)
             return false;
-        int op = OPPONENT(b[ol][oc].owner);
-        if(checkAttack(dl,dc,op) or checkAttack(dl,(dc+oc)/2,op) or checkAttack(ol,oc,op)) {
+        int op = OPPONENT(b[m.ol][m.oc].owner);
+        if(checkAttack(m.dl,m.dc,op) or checkAttack(m.dl,(m.dc+m.oc)/2,op) or checkAttack(m.ol,m.oc,op)) {
             return false;
         }
         return true;
@@ -785,7 +828,7 @@ struct Board
         return false;
     }
 
-    int listWhitePawnMoves(int l, int c, _move *list) {
+    int listWhitePawnMoves(int l, int c, Move *list) {
         int n = 0;
 
         if(b[l+1][c].type == CLEAR) {
@@ -805,7 +848,7 @@ struct Board
         return n;
     }
 
-    int listBlackPawnMoves(int l, int c, _move *list) {
+    int listBlackPawnMoves(int l, int c, Move *list) {
         int n = 0;
 
         if(b[l-1][c].type == CLEAR) {
@@ -825,9 +868,9 @@ struct Board
         return n;
     }
 
-    int listKnightMoves(int l, int c, _move *list) {
-        static const int dl[] = {2,1,-1,-2,-2,-1,1,2};
-        static const int dc[] = {1,2,2,1,-1,-2,-2,-1};
+    int listKnightMoves(int l, int c, Move *list) {
+        static const int dl[] = { 2, 1,-1,-2,-2,-1, 1, 2};
+        static const int dc[] = { 1, 2, 2, 1,-1,-2,-2,-1};
         int n = 0;
         for(int i=0;i<8;++i) {
             if(VALID_POS(l+dl[i],c+dc[i]) and b[l+dl[i]][c+dc[i]].owner != b[l][c].owner) {
@@ -837,7 +880,7 @@ struct Board
         return n;
     }
 
-    int listRookMoves(int l, int c, _move *list) {
+    int listRookMoves(int l, int c, Move *list) {
         static const int dl[] = { 1, 0,-1, 0};
         static const int dc[] = { 0, 1, 0,-1};
         int n = 0;
@@ -853,7 +896,7 @@ struct Board
         return n;
     }
 
-    int listBishopMoves(int l, int c, _move *list) {
+    int listBishopMoves(int l, int c, Move *list) {
         static const int dl[] = {1, 1,-1,-1};
         static const int dc[] = {1,-1,-1, 1};
         int l1,c1;
@@ -869,7 +912,7 @@ struct Board
         return n;
     }
 
-    int listKingMoves(int l, int c, _move *list) {
+    int listKingMoves(int l, int c, Move *list) {
         static const int dl[] = { 1, 1, 1, 0,-1,-1,-1, 0};
         static const int dc[] = { 1, 0,-1,-1,-1, 0, 1, 1};
         int n = 0;
@@ -881,7 +924,7 @@ struct Board
         return n;
     }
 
-    int listQueenMoves(int l, int c, _move *list) {
+    int listQueenMoves(int l, int c, Move *list) {
         int n = 0;
 
         n += listRookMoves(l, c, list);
@@ -890,7 +933,7 @@ struct Board
         return n;
     }
 
-    int listMoves(_move *list, int t)
+    __attribute__((noinline)) int listMoves(Move *list, int t)
     {
         int n = 0;
 
@@ -927,28 +970,32 @@ struct Board
         return n;
     }
 
-    int listWhitePawnAttacks(int l, int c, int op, _move* list) {
+    int listWhitePawnAttacks(int l, int c, int op, Move* list) {
         int n = 0;
         if(c>0 and b[l+1][c-1].owner == op)
             put(l+1,c-1);
         if(c<7 and b[l+1][c+1].owner == op)
             put(l+1,c+1);
+        if(l==6 and b[l+1][c].owner == NONE)
+            put(l+1,c);
         return n;
     }
 
-    int listBlackPawnAttacks(int l, int c, int op, _move* list) {
+    int listBlackPawnAttacks(int l, int c, int op, Move* list) {
         int n = 0;
         if(c>0 and b[l-1][c-1].owner == op)
             put(l-1,c-1);
         if(c<7 and b[l-1][c+1].owner == op)
             put(l-1,c+1);
+        if(l==1 and b[l-1][c].owner == NONE)
+            put(l-1,c);
         return n;
     }
 
 
-    int listKnightAttacks(int l, int c, int op, _move* list) {
-        static const int dl[] = {2,1,-1,-2,-2,-1,1,2};
-        static const int dc[] = {1,2,2,1,-1,-2,-2,-1};
+    int listKnightAttacks(int l, int c, int op, Move* list) {
+        static const int dl[] = { 2, 1,-1,-2,-2,-1, 1, 2};
+        static const int dc[] = { 1, 2, 2, 1,-1,-2,-2,-1};
         int n = 0;
         for(int i=0;i<8;++i) {
             if(VALID_POS(l+dl[i],c+dc[i]) and b[l+dl[i]][c+dc[i]].owner == op) {
@@ -958,9 +1005,9 @@ struct Board
         return n;
     }
 
-    int listBishopAttacks(int l, int c, int op, _move* list) {
-        static const int dl[] = {1, 1,-1,-1};
-        static const int dc[] = {1,-1,-1, 1};
+    int listBishopAttacks(int l, int c, int op, Move* list) {
+        static const int dl[] = { 1, 1,-1,-1};
+        static const int dc[] = { 1,-1,-1, 1};
         int l1,c1;
         int n = 0;
         for(int i=0;i<4;++i) {
@@ -971,7 +1018,7 @@ struct Board
         return n;
     }
 
-    int listRookAttacks(int l, int c, int op, _move* list) {
+    int listRookAttacks(int l, int c, int op, Move* list) {
         static const int dl[] = { 1, 0,-1, 0};
         static const int dc[] = { 0, 1, 0,-1};
         int n = 0;
@@ -985,14 +1032,14 @@ struct Board
         return n;
     }
 
-    int listQueenAttacks(int l, int c, int op, _move* list) {
+    int listQueenAttacks(int l, int c, int op, Move* list) {
         int n = 0;
         n += listBishopAttacks(l, c, op, list);
         n += listRookAttacks(l, c, op, list + n);
         return n;
     }
 
-    int listKingAttacks(int l, int c, int op, _move* list) {
+    int listKingAttacks(int l, int c, int op, Move* list) {
         static const int dl[] = { 1, 1, 1, 0,-1,-1,-1, 0};
         static const int dc[] = { 1, 0,-1,-1,-1, 0, 1, 1};
         int n = 0;
@@ -1004,7 +1051,7 @@ struct Board
         return n;
     }
 
-    int listAttacks(_move* list) {
+    int listAttacks(Move* list) {
 
         int n = 0;
         int op = OPPONENT(turn);
@@ -1043,7 +1090,7 @@ struct Board
     }
 
     bool done() {
-        _move moves[1024];
+        Move moves[1024];
         MoveInfo mi;
         int kl = 0, kc = 0;
         int n = listMoves(moves, turn);
@@ -1053,7 +1100,7 @@ struct Board
         kc = peca_table[turn][KING][0].c;
 
         for(int i=0;i<n;++i) {
-            mi = move(moves[i].ol, moves[i].oc, moves[i].dl, moves[i].dc);
+            mi = move(moves[i]);
             if(kl == moves[i].ol and kc == moves[i].oc) {
                 if(not checkAttack(moves[i].dl, moves[i].dc, turn)) {
                     res = false;
@@ -1063,7 +1110,7 @@ struct Board
                     res = false;
                 }
             }
-            volta(moves[i].ol, moves[i].oc, moves[i].dl, moves[i].dc, mi);
+            volta(moves[i], mi);
         }
         if(res == false)
             return false;
@@ -1075,33 +1122,63 @@ struct Board
         return true;
     }
 
-    int evalPawn(int l, int c) {
-        return material_table[b[l][c].owner][PAWN];
-    }
+    int countKnightMoves(int l, int c) {
+        static const int dl[] = { 2, 1,-1,-2,-2,-1, 1, 2};
+        static const int dc[] = { 1, 2, 2, 1,-1,-2,-2,-1};
 
-    int evalKnight(int l, int c) {
-        static const int dl[] = {2,1,-1,-2,-2,-1,1,2};
-        static const int dc[] = {1,2,2,1,-1,-2,-2,-1};
-
-        int t = b[l][c].owner;
-        int score = material_table[t][KNIGHT];
+        int o = b[l][c].owner;
+        int score = 0;
         for(int i=0;i<8;++i) {
-            if(not VALID_POS(l+dl[i],c+dc[i])) {
-                score -=  0;
-
-            } if(b[l+dl[i]][c+dc[i]].owner != b[l][c].owner) {
+            if(VALID_POS(l+dl[i],c+dc[i]) and b[l+dl[i]][c+dc[i]].owner != o) {
+                score ++;
             }
         }
         return score;
     }
 
-    int32_t eval() {
+    int countBishopMoves(int l, int c) {
+        static const int dl[] = { 1, 1,-1,-1};
+        static const int dc[] = { 1,-1,-1, 1};
+        int l1,c1;
+        int score = 0;
+        int o = b[l][c].owner;
+        for(int i=0;i<4;++i) {
+            for(l1=l+dl[i],c1=c+dc[i]; VALID_POS(l1,c1) and (b[l1][c1].type == CLEAR or ((b[l1][c1].type == QUEEN or b[l1][c1].type == BISHOP) and b[l1][c1].owner == o));l1+=dl[i],c1+=dc[i]) {
+                score ++;
+            }
+            if(VALID_POS(l1,c1) and b[l1][c1].owner != b[l][c].owner) {
+                score ++;
+            }
+        }
+        return score;
+    }
+
+    int countRookMoves(int l, int c) {
+        static const int dl[] = { 1, 0,-1, 0};
+        static const int dc[] = { 0, 1, 0,-1};
+        int l1, c1;
+        int score = 0;
+        int o = b[l][c].owner;
+        for(int i=0;i<4;++i) {
+            for(l1=l+dl[i],c1=c+dc[i];VALID_POS(l1,c1) and (b[l1][c1].type == CLEAR or ((b[l1][c1].type == ROOK or b[l1][c1].type == QUEEN) and b[l1][c1].owner == o));l1+=dl[i],c1+=dc[i]) {
+                score ++;
+            }
+            if(VALID_POS(l1,c1) and b[l1][c1].owner != b[l][c].owner) {
+                score ++;
+            }
+        }
+        return score;
+    }
+
+    int countQueenMoves(int l, int c) {
+        return countBishopMoves(l, c) + countRookMoves(l ,c);
+    }
+
+    __attribute__((noinline)) int32_t eval() {
         int32_t score;
         int pawn_score = 0;
         int mob_score = 0;
         int p[2][10];
-        _move list[512];
-        int n;
         eval_hash_slot* slot;
 
         if((slot = eval_hash_find(hash_key, turn)) != 0) {
@@ -1135,21 +1212,24 @@ struct Board
         }
 
         /* mobilidade das pecas */
-        n = listMoves(list, WHITE);
-        for(int i=0;i<n;++i) {
-            mob_score += mobility_score[WHITE][b[list[i].ol][list[i].oc].type];
+        for(int t=0;t<2;++t) {
+            for(int i=0;i<size_table[t][KNIGHT];++i) {
+                mob_score += mobility_score[t][KNIGHT] * countKnightMoves(peca_table[t][KNIGHT][i].l, peca_table[t][KNIGHT][i].c);
+            }
+            for(int i=0;i<size_table[t][BISHOP];++i) {
+                mob_score += mobility_score[t][BISHOP] * countBishopMoves(peca_table[t][BISHOP][i].l, peca_table[t][BISHOP][i].c);
+            }
+            for(int i=0;i<size_table[t][ROOK];++i) {
+                mob_score += mobility_score[t][ROOK] * countRookMoves(peca_table[t][ROOK][i].l, peca_table[t][ROOK][i].c);
+            }
         }
-        n = listMoves(list, BLACK);
-        for(int i=0;i<n;++i) {
-            mob_score += mobility_score[BLACK][b[list[i].ol][list[i].oc].type];
-        }
-
-
+        
+        
         /* material score */
         if(turn == WHITE) {
             score = this->score + pawn_score + mob_score;
         } else {
-            score = - (this->score + pawn_score + mob_score);
+            score = -(this->score + pawn_score + mob_score);
         }
 
         eval_hash_insert(hash_key, turn, score);
@@ -1174,7 +1254,7 @@ struct Board
         return true;
     }
 
-    bool repeated3() {
+    bool repeated() {
         int conta = 0;
         for(int i=0;i<move_count;++i) {
             if(history[i] == hash_key) {
@@ -1188,10 +1268,10 @@ struct Board
     }
 } board;
 
+
 const int encode_table[][7] = {{ 0, 1, 2, 3, 4, 5, 6},
                                { 0, 7, 8, 9,10,11,12},
                                { 0, 0, 0, 0, 0, 0, 0}};
-
 
 struct board_code {
     uint32_t code[8];
@@ -1215,6 +1295,7 @@ struct board_code {
     bool operator!=(const board_code& bc) const {
         return not this->operator==(bc);
     }
+
 };
 
 board_code enc() {
@@ -1223,10 +1304,10 @@ board_code enc() {
     return bc;
 }
 
-_move ComputerPlay(int depth);
+Move ComputerPlay(int depth, bool post);
 
-_move parse_move_string(std::string move_str) {
-    _move resp;
+Move parse_move_string(std::string move_str) {
+    Move resp;
     if(move_str == "o-o-o" or move_str == "O-O-O" or move_str == "0-0-0") {
         if(board.turn == WHITE)
             move_str = "e1c1";
@@ -1246,9 +1327,8 @@ _move parse_move_string(std::string move_str) {
     return resp;
 }
 
-_move list[256];
+Move list[256];
 
-long long node_count;
 int random_play;
 
 int main(int argc, char** argv)
@@ -1257,6 +1337,9 @@ int main(int argc, char** argv)
     char* args;
     int play = BLACK;
     int go = 0;
+    int depth = dificuldade;
+    int my_time = 0, op_time = 0;
+    bool ponder = false, post = false;
     random_play = 0;
 
     if(argc==1)
@@ -1267,10 +1350,10 @@ int main(int argc, char** argv)
     int seed = time(NULL);
     fprintf(log_file,"seed %d\n", seed);
 
-    init();
+    init_hash();
     srand48(seed);
     board.setInitial();
-    board.checkBoard(__LINE__);
+    ASSERT(board.checkBoard());
     board.check_hash_key(__LINE__);
 
     while(1) {
@@ -1289,49 +1372,61 @@ int main(int argc, char** argv)
         args = comando + i;
 
         if(strcmp(comando, "xboard")==0) {
+            /* so uso o xabord mesmo, não faça nada aqui */
         } else if(strcmp(comando, "protover")==0) {
-            printf("feature myname=\"raphael-chess%d\" ping=1 usermove=1 draw=0 variants=\"normal\" sigint=0 sigterm=0 done=1\n",dificuldade);
+            /* features */
+            /* não queremos nenhum sinal */
+            printf("feature myname=\"raphael-chess%d\" ping=1 usermove=1 draw=0 variants=\"normal\" sigint=0 sigterm=0 setboard=1 playother=1 analyze=0 colors=0 done=1\n",dificuldade);
         } else if(strcmp(comando, "new")==0) {
+            /* reinicia tudo */
             board.setInitial();
             play = BLACK;
             go = 1;
         } else if(strcmp(comando, "variant")==0) {
+            /* não suportamos nenhuma variante */
         } else if(strcmp(comando, "quit")==0) {
+            /* fecha */
             break;
         } else if(strcmp(comando, "random")==0) {
+            /* coloca aleatoriedade nas jogadas */
             random_play = not random_play;
         } else if(strcmp(comando, "force")==0) {
+            /* pare de jogar */
             go = 0;
         } else if(strcmp(comando, "go")==0) {
-            if(go == 0) {
-                play = board.turn;
-                go = 1;
-            }
+            /* jogue! */
+            play = board.turn;
+            go = 1;
         } else if(strcmp(comando, "playother")==0) {
+            /* jogue com o outra cor */
             play = board.turn^1;
             go=1;
         } else if(strcmp(comando, "white")==0) {
+            /* obsoleto, não faça nada */
         } else if(strcmp(comando, "black")==0) {
+            /* obsoleto, não faça nada */
         } else if(strcmp(comando, "level")==0) {
         } else if(strcmp(comando, "st")==0) {
         } else if(strcmp(comando, "sd")==0) {
+            /* profundidade limite */
+            depth = atoi(args);
         } else if(strcmp(comando, "time")==0) {
+            /* meu tempo */
+            my_time = atoi(args);
         } else if(strcmp(comando, "otim")==0) {
+            /* tempo do opoente */
+            op_time = atoi(args);
         } else if(strcmp(comando, "board")==0) {
+            /* extensão, imprime o tabuleiro */
             board.print(stdout);
         } else if(strcmp(comando, "ping")==0) {
             printf("pong %s\n", args);
-        } else if(strcmp(comando, "usermove")==0) {
-            /* play it*/
-            _move m = parse_move_string(args);
-            board.move(m.ol, m.oc, m.dl, m.dc);
-            play = board.turn;
-            fprintf(log_file, "%s\n\n", board.getFen().c_str());
-            fprintf(log_file, "rough score %+d\n", board.eval());
         } else if(strcmp(comando, "draw")==0) {
         } else if(strcmp(comando, "result")==0) {
+            /* temos um resultado, não jogue mais */
             go=0;
         } else if(strcmp(comando, "setboard")==0) {
+            /* seta para a posição dada */
             board.setFen(args);
         } else if(strcmp(comando, "edit")==0) {
         } else if(strcmp(comando, "hint")==0) {
@@ -1339,9 +1434,17 @@ int main(int argc, char** argv)
         } else if(strcmp(comando, "undo")==0) {
         } else if(strcmp(comando, "remove")==0) {
         } else if(strcmp(comando, "hard")==0) {
+            /* podemos pensar o tempo todo */
+            ponder = true;
         } else if(strcmp(comando, "easy")==0) {
+            /* pense apenas nossa vez */
+            ponder = false;
         } else if(strcmp(comando, "nopost")==0) {
+            /* não coloca resultados da busca */
+            post = false;
         } else if(strcmp(comando, "post")==0) {
+            /* coloca resultados da busca */
+            post = true;
         } else if(strcmp(comando, "accepted")==0) {
         } else if(strcmp(comando, "analyze")==0) {
         } else if(strcmp(comando, "name")==0) {
@@ -1351,26 +1454,40 @@ int main(int argc, char** argv)
         } else if(strcmp(comando, "pause")==0) {
         } else if(strcmp(comando, "resume")==0) { 
         } else {
-            /* play it*/
-            _move m = parse_move_string(comando);
-            board.move(m.ol, m.oc, m.dl, m.dc);
-            play = board.turn;
-            fprintf(log_file, "%s\n\n", board.getFen().c_str());
-            fprintf(log_file, "rough score %+d\n", board.eval());
+            /* jogada do oponete */
+            Move m;
+            if(strcmp(comando, "usermove") == 0)
+                m = parse_move_string(args);
+            else
+                m = parse_move_string(comando);
+            if(not board.validateMove(m)) {
+                printf("Illegal move: ");
+                print_move(stdout, m);
+                printf("\n");
+            } else {
+                board.move(m);
+                play = board.turn;
+                fprintf(log_file, "%s\n\n", board.getFen().c_str());
+                fprintf(log_file, "rough score %+d\n", board.eval());
+            }
         }
         fflush(stdout);
-        if(play==board.turn and go) {
-            _move m = ComputerPlay(dificuldade);
+        /* joga de for o caso */
+        if(play == board.turn and go) {
+            Move m = ComputerPlay(depth, post);
             printf("move %c%c%c%c\n",m.oc+'a',m.ol+'1',m.dc+'a',m.dl+'1');
             fprintf(log_file, "<- move %c%c%c%c\n",m.oc+'a',m.ol+'1',m.dc+'a',m.dl+'1');
-            board.move(m.ol, m.oc, m.dl, m.dc);
-            fprintf(log_file, "%s\n\n", board.getFen().c_str());
-            fprintf(log_file, "rough score %+d\n", board.eval());
+            board.move(m);
+            fprintf(log_file, "%s\n", board.getFen().c_str());
+            fprintf(log_file, "rough score %+d\n\n", board.eval());
         }
+        /* verifica fim de jogo */
         if(board.done()) {
             printf("%s\n", board.result.c_str());
             go = 0;
         }
+
+        /* descarga dos buffers */
         fflush(stdout);
         fflush(log_file);
     }
@@ -1378,14 +1495,9 @@ int main(int argc, char** argv)
     return 0;
 }
 
-const int code_table[3][7] = 
-{{12,0 ,1 ,2 ,3 ,4 ,5},
- {12,6 ,7 ,8 ,9 ,10,11},
- {12,12,12,12,12,12,12}};
+uint32_t hash_hit = 0, hash_miss = 0, exact_hit = 0, false_hit = 0, hash_drops = 0, insert_count = 0, null_moves = 0, null_prunes, pv_fail = 0, node_count = 0;
 
-uint64_t hash_hit = 0, hash_miss = 0, exact_hit = 0, false_hit = 0, hash_drops = 0, insert_count = 0;
-
-hash_slot* hash_find(int depth) {
+hash_slot* hash_find() {
     hash_slot* cand = hash_table[board.turn] + board.hash_key % HASH_SIZE;
     if(cand->hash_key != board.hash_key) {
         return 0;
@@ -1393,17 +1505,25 @@ hash_slot* hash_find(int depth) {
     return cand;
 }
 
-void hash_insert(int depth, int score, _move move, uint8_t type) {
+void hash_insert(int depth, int score, Move move, uint8_t type) {
     hash_slot* cand = hash_table[board.turn] + (board.hash_key) % HASH_SIZE;
 
     insert_count ++;
 
-    if(cand->hash_key == board.hash_key and (cand->depth > depth or (cand->depth == depth and type != HASH_EXACT))) {
-        return;
-    }
-
-    if(cand->type != HASH_UNUSED and cand->hash_key != board.hash_key)
+    if(cand->hash_key == board.hash_key) {
+        if(cand->depth == depth) {
+            if(cand->type > type)
+                return;
+            if(cand->type == type) {
+                if(type == HASH_UPPERBOUND)
+                    score = min(score, cand->score);
+                if(type == HASH_LOWERBOUND)
+                    score = max(score, cand->score);
+            }
+        }
+    } else if(cand->type != HASH_UNUSED) {
         hash_drops ++;
+    }
 
     cand->hash_key = board.hash_key;
     cand->depth = depth;
@@ -1416,13 +1536,7 @@ const int cap_table[7]={0,1,2,3,4,5,6};
 
 const int mob_pref_table[7]={0,1,5,4,3,2,0};
 
-int score_move(const _move& m) {
-    if((m.dl==0 or m.dl==7) and board.b[m.ol][m.oc].type==PAWN) {
-        return cap_table[QUEEN];
-    } else {
-        return cap_table[board.b[m.dl][m.dc].type];
-    }
-}
+Move killer_moves[1024][2];
 
 int dest_table[2][8][8] =
                           {{{  1,  1,  1,  1,  1,  1,  1,  1},
@@ -1442,120 +1556,169 @@ int dest_table[2][8][8] =
                             {  1,  2,  2,  2,  2,  2,  2,  1},
                             {  1,  1,  1,  1,  1,  1,  1,  1}}};
 
-bool compara_move(const _move& m1, const _move& m2) {
+void init_tables() {
+    for(int i=0;i<1024;++i) {
+        killer_moves[i][0] = killer_moves[i][1] = Move(0,0,0,0);
+    }
+}
+
+struct MoveScore {
+    Move m;
+    int score;
+    void setScore() {
+        int c = cap_table[board.b[m.dl][m.dc].type];
+        int v = cap_table[board.b[m.ol][m.oc].type];
+        int o = board.b[m.ol][m.oc].owner;
+
+        score = 8*8*8 * c + 8 * dest_table[o][m.dl][m.dc] + (6 - v);
+        if(m == killer_moves[board.move_count][0] or
+           m == killer_moves[board.move_count][1]) {
+            score += 8*8;
+        }
+    }
+    inline bool operator<(const MoveScore& ms) const {
+        return score > ms.score;
+    }
+};
+
+inline bool compara_move(const Move& m1, const Move& m2) {
     int c1 = cap_table[board.b[m1.dl][m1.dc].type];
     int c2 = cap_table[board.b[m2.dl][m2.dc].type];
+
+    int v1 = cap_table[board.b[m1.ol][m1.oc].type];
+    int v2 = cap_table[board.b[m2.ol][m2.oc].type];
+
+    int o = board.b[m1.ol][m1.oc].owner;
+
     /* capture as pecas de maior valor primeiro */
     if(c1 > c2)
         return true;
     if(c1 < c2)
         return false;
-    int v1 = cap_table[board.b[m1.ol][m1.oc].type];
-    int v2 = cap_table[board.b[m1.ol][m1.oc].type];
-    /* capture com a a peca de menor valor */
-    if(c1 > 0 and v1 < v2)
-        return true;
-    if(c1 > 0 and v1 > v2)
-        return false;
 
+    /* com a peca de menor valor primeiro */
     if(v1 < v2)
         return true;
     if(v1 > v2)
         return false;
 
-    int o = board.b[m1.ol][m1.oc].owner;
+    /* jogadas para o centro primeiro */
     if(dest_table[o][m1.dl][m1.dc] > dest_table[o][m2.dl][m2.dc])
         return true;
     return false;
 }
 
-_move ordena_table[7][256];
-int ordena_count[7];
-void ordena_move(_move* begin, _move* end) {
-    for(int i=0;i<7;++i) ordena_count[i]=0;
-    for(_move* p1 = begin; p1 != end; ++p1) {
-        int s = score_move(*p1);
-        ordena_table[s][ordena_count[s]++] = *p1;
+void sort_moves(Move* moves, int n) {
+    MoveScore ms[512];
+    for(int i=0;i<n;++i) {
+        ms[i].m = moves[i];
+        ms[i].setScore();
     }
-    for(int i=10;i>=0;--i) {
-        for(int j=0;j<ordena_count[i];++j)
-            *(begin++) = ordena_table[i][j];
+    sort(ms, ms+n);
+    for(int i=0;i<n;++i) {
+        moves[i] = ms[i].m;
     }
+    //sort(moves, moves+n, compara_move);
 }
 
-#define SEARCH_QUIESCENT 1
+
 #define SEARCH_PV 2
+#define SEARCH_ROOT 4
 #define INFINITE_SCORE (mate_score + 128)
 
-int search(int depth, int alfa = -INFINITE_SCORE, int beta = INFINITE_SCORE, int flags = 0) {
+int search(int depth, int alfa = -INFINITE_SCORE, int beta = INFINITE_SCORE, int flags = SEARCH_ROOT) {
     int n, t;
     uint8_t type;
     MoveInfo mi;
     hash_slot* slot;
-    _move list[512];
-    _move best_move;
+    Move list[512];
+    Move best_move(0,0,0,0);
     int list_offset = 0;
-    int best_score;
+    int best_score = -INFINITE_SCORE;
+    bool is_pv = (flags & SEARCH_PV) != 0;
+    bool is_root = (flags & SEARCH_ROOT) != 0;
+    bool is_quiescent = (depth <= 0);
 
-    best_score = -INFINITE_SCORE;
-    best_move.ol = best_move.oc = best_move.dl = best_move.dc = 0;
+    flags &= ~SEARCH_ROOT;
 
-    if(board.repeated3()) {
+    if(board.repeated()) {
         return 0;
     }
 
-    if(not (flags & SEARCH_QUIESCENT)) {
-        slot = hash_find(depth);
+    /* poda os limites de mate */
+    /*if(alfa >= mate_score + depth)
+        return alfa;
+    if(beta <= -(mate_score + depth - 1))
+        return beta;*/
+
+
+    if(not is_quiescent) {
+        slot = hash_find();
         
-        if(slot == 0 and depth > 5) {
-            search(2, alfa, beta);
-            slot = hash_find(depth);
+        /* Iterative deepening */
+        if(depth >= 3 and slot == 0) {
+            search(depth - 2, alfa, beta, SEARCH_ROOT);
+            slot = hash_find();
         }
 
         /* consulta a tabela hash */
         if(slot != 0) {
-            if(slot->depth >= depth and slot->type == HASH_EXACT) {
-                ++ exact_hit;
-                mi = board.move(slot->move.ol, slot->move.oc, slot->move.dl, slot->move.dc);
-                if(not board.repeated3()) {
-                    board.volta(slot->move.ol, slot->move.oc, slot->move.dl, slot->move.dc, mi);
-                    return slot->score;
-                } else {
-                    board.volta(slot->move.ol, slot->move.oc, slot->move.dl, slot->move.dc, mi);
+            if(slot->depth == depth) {
+                if(slot->type == HASH_EXACT) {
+                    ++ exact_hit;
+                    mi = board.move(slot->move);
+                    if(not board.repeated()) {
+                        board.volta(slot->move, mi);
+                        return slot->score;
+                    } else {
+                        board.volta(slot->move, mi);
+                    }
+                } else if(slot->type == HASH_UPPERBOUND) {
+                    if(slot->score <= alfa) {
+                        return slot->score;
+                    }
+                } else if(slot->type == HASH_LOWERBOUND) {
+                    if(slot->score >= beta) {
+                        return slot->score;
+                    }
                 }
-            } else if(slot->depth == depth and slot->type == HASH_UPPERBOUND) {
-                beta = min(beta, slot->score);
-            } else if(slot->depth == depth and slot->type == HASH_LOWERBOUND) {
-                alfa = max(alfa, slot->score);
-            }
-            if(alfa >= beta) {
-                return slot->score;
             }
             /* pega uma dica da tabela se houver */
             if(slot->move.ol != slot->move.dl or slot->move.oc != slot->move.dc) {
-                list[0] = slot->move;
-                list_offset = 1;
+                list[list_offset++] = slot->move;
             }
         }
     }
 
+
     /* em quiescent testa apenas as capturas */
-    if(flags & SEARCH_QUIESCENT) {
+    if(is_quiescent) {
         n = board.listAttacks(list + list_offset) + list_offset;
         best_score = max(best_score, board.eval());
     } else {
         n = board.listMoves(list + list_offset, board.turn) + list_offset;
     }
-    stable_sort(list, list+n, compara_move);
+
+
+    sort_moves(list+list_offset, n-list_offset);
+
+    ASSERT(n < 512);
+
+    /* null move */
+    if(not is_root and not is_pv and depth >= 2 and (depth <= 3 or board.eval() >= beta)) {
+        ++ null_moves;
+        mi = board.move_null();
+        t = -search(depth-3, -beta, -beta+1, flags);
+        if(t >= mate_score) t = mate_score - 1;
+        board.volta_null(mi);
+        if(t >= beta) {
+            ++ null_prunes;
+            return t;
+        }
+    }
 
     for(int i=0;i<n;i++) {
         node_count++;
-
-        /* loga o progresso */
-        /*if(depth == dificuldade) {
-            fprintf(log_file, "%d/%d\n", i, n);
-            fflush(log_file);
-        }*/
 
         /* poda */
         if(best_score >= beta) {
@@ -1569,63 +1732,81 @@ int search(int depth, int alfa = -INFINITE_SCORE, int beta = INFINITE_SCORE, int
             break;
         }
 
+        ASSERT(list[i].is_valid());
+
         /* move */
-        mi = board.move(list[i].ol,list[i].oc,list[i].dl,list[i].dc);
+        mi = board.move(list[i]);
 
         /* recursão */
-        if(depth == 1) {
-            if(mi.p.type == CLEAR) {
-                t = board.eval();
-            } else {
-                /* extende a busca em caso de captura na folha */
-                t = -search(1, -beta, -max(alfa, best_score), flags | SEARCH_QUIESCENT);
-            }
-        } else {
+        if(depth <= 1) {
+            t = -search(depth-1, -beta, -max(alfa, best_score), flags);
+        } else { 
             if(i > 0 and not (flags & SEARCH_PV)) {
-                t = -search(depth-1, -best_score-1, -best_score, flags | SEARCH_PV);
-                if(t > best_score) {
-                    t = -search(depth-1, -beta, -max(alfa, best_score), flags);
+                t = -search(depth-1, -best_score-1, -best_score, flags);
+                if(t > best_score and t < beta) {
+                    pv_fail ++;
+                    t = -search(depth-1, -beta, -max(alfa, t), flags | SEARCH_PV);
                 }
             } else {
-                t = -search(depth-1, -beta, -max(alfa, best_score), flags);
+                t = -search(depth-1, -beta, -max(alfa, best_score), flags | SEARCH_PV);
             }
         }
 
         /* volta movimento */
-        board.volta(list[i].ol,list[i].oc,list[i].dl,list[i].dc,mi);
+        board.volta(list[i],mi);
 
         /* atualiza resultado */
         if(t > best_score) {
             best_score = t;
             best_move = list[i];
         }
+
+        /* loga o progresso */
+        /*if(is_root) {
+            fprintf(log_file, "%d/%d %d/%d ", i, n, best_score, t);
+            print_move(log_file, list[i]);
+            fprintf(log_file, "\n");
+            fflush(log_file);
+        }*/
+
     }
 
     /* verifica afogamento */
     if(best_score == -(mate_score + depth - 1) and not board.checkCheck()) {
         best_score = 0;
     }
+
+//cut:
+
     /* registra resultado na tabela hash */
-    if(flags & SEARCH_QUIESCENT) {
-        return best_score;
-    } else if(best_score <= alfa) {
-        type = HASH_UPPERBOUND;
-    } else if(best_score >= beta) {
-        type = HASH_LOWERBOUND;
-    } else {
-        type = HASH_EXACT;
+    if(not is_quiescent) {
+        if(best_score <= alfa) {
+            type = HASH_UPPERBOUND;
+        } else if(best_score >= beta) {
+            type = HASH_LOWERBOUND;
+        } else {
+            type = HASH_EXACT;
+        }
+        hash_insert(depth, best_score, best_move, type);
     }
-    hash_insert(depth, best_score, best_move, type);
+
+    if(best_move != Move(0,0,0,0)) {
+        ASSERT(board.move_count < 1024);
+        if(killer_moves[board.move_count][0] != best_move) {
+            killer_moves[board.move_count][1] = killer_moves[board.move_count][0];
+            killer_moves[board.move_count][0] = best_move;
+        }
+    }
 
     return best_score;
 }
 
-_move ComputerPlay(int depth)
+Move ComputerPlay(int depth, bool post)
 {
-    _move best;
+    Move best;
     hash_slot* slot;
     MoveInfo mis[128];
-    _move hist[128];
+    Move hist[128];
     int score = 0;
 
     hash_hit = 0;
@@ -1634,12 +1815,15 @@ _move ComputerPlay(int depth)
     false_hit = 0;
     hash_drops = 0;
     insert_count = 0;
+    null_moves = 0;
+    null_prunes = 0;
+    pv_fail = 0;
 
     score = search(depth);
 
     fprintf(log_file, "%s\n", board.getFen().c_str());
 
-    slot = hash_find(depth);
+    slot = hash_find();
 
     best = slot->move;
 
@@ -1647,31 +1831,36 @@ _move ComputerPlay(int depth)
     print_move(log_file, slot->move);
     fprintf(log_file, "\n");
 
-    if(1) {
+    if(post) {
+        printf("%d %d %d %d", depth, score, 0, node_count);
         for(int d=depth;d>=1;--d) {
-            search(d, score-1, score+1);
-            slot = hash_find(d);
-            fprintf(log_file, "%+d ", slot->score);
-            print_move(log_file, slot->move);
-            fprintf(log_file, " ");
-            mis[d] = board.move(slot->move.ol,slot->move.oc,slot->move.dl,slot->move.dc);
+            search(d, score-1, score);
+            slot = hash_find();
+            printf(" ");
+            print_move(stdout, slot->move);
+            mis[d] = board.move(slot->move);
             hist[d] = slot->move;
             score = -score;
             if(d == 1 or board.done()) {
                 for(;d<=depth;++d) {
-                    board.volta(hist[d].ol, hist[d].oc, hist[d].dl, hist[d].dc, mis[d]);
+                    board.volta(hist[d], mis[d]);
                 }
                 break;
             }
         }
+        printf("\n");
     }
 
     fprintf(log_file, "\n");
 
-    fprintf(log_file,"hash hits %lld\n", hash_hit);
-    fprintf(log_file,"exact hits %lld\n", exact_hit);
-    fprintf(log_file,"nodes visited %lld\n", node_count);
+    fprintf(log_file,"hash hits %d\n", hash_hit);
+    fprintf(log_file,"exact hits %d\n", exact_hit);
+    fprintf(log_file,"nodes visited %d\n", node_count);
+    fprintf(log_file,"null moves %d\n", null_moves);
+    fprintf(log_file,"null prunes %d\n", null_prunes);
+    fprintf(log_file,"pv fails %d\n", pv_fail);
 
+    /* XXX */
     int hash_usage = 0;
     for(int t=0;t<2;++t) {
         for(uint32_t i=0;i<HASH_SIZE;++i) {
@@ -1682,9 +1871,9 @@ _move ComputerPlay(int depth)
     }
 
     fprintf(log_file,"hash usage %f\n", double(hash_usage)/double(HASH_SIZE*2)*100.0);
-    fprintf(log_file,"hash drops %lld\n", hash_drops);
-    fprintf(log_file,"false hit %lld\n", false_hit);
-    fprintf(log_file,"hash inserts %lld\n", insert_count);
+    fprintf(log_file,"hash drops %d\n", hash_drops);
+    fprintf(log_file,"false hit %d\n", false_hit);
+    fprintf(log_file,"hash inserts %d\n", insert_count);
 
     fprintf(log_file,"\n");
 
