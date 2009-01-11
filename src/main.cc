@@ -21,6 +21,9 @@ using namespace std;
 
 typedef int8_t place;
 
+#define printf(...) printf(__VA_ARGS__),fprintf(log_file, "<- " __VA_ARGS__)
+
+
 int main(int argc, char** argv)
 {
     char comando[1024];
@@ -41,10 +44,12 @@ int main(int argc, char** argv)
     fprintf(log_file,"seed %d\n", seed);
 
     /* init stuff */
-    init_hash();
     init_hash_code();
     init_search();
     init_bitboard();
+
+    /* start with 100mb o hash size */
+    hash_set_size(100*(1<<20));
 
     srand48(seed);
     board.setInitial();
@@ -171,7 +176,6 @@ int main(int argc, char** argv)
         if(play == board.turn and go) {
             Move m = ComputerPlay(depth, post);
             printf("move %c%c%c%c\n",m.oc()+'a',m.ol()+'1',m.dc()+'a',m.dl()+'1');
-            fprintf(log_file, "<- move %c%c%c%c\n",m.oc()+'a',m.ol()+'1',m.dc()+'a',m.dl()+'1');
             board.move(m);
             fprintf(log_file, "%s\n", board.getFen().c_str());
             fprintf(log_file, "rough score %+d\n\n", board.eval());

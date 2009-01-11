@@ -372,7 +372,7 @@ Move ComputerPlay(int depth, bool post)
         }
     }*/
 
-    fprintf(log_file,"hash usage %f\n", double(hash_usage)/double(HASH_SIZE*2)*100.0);
+    fprintf(log_file,"hash usage %f\n", double(hash_usage)/double(hash_usage*2)*100.0);
     fprintf(log_file,"hash drops %d\n", hash_drops);
     fprintf(log_file,"false hit %d\n", false_hit);
     fprintf(log_file,"hash inserts %d\n", insert_count);
