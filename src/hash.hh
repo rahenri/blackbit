@@ -15,9 +15,7 @@ struct hash_slot {
     Move move;
 };
 
-int32_t hash_hit, hash_miss, insert_count, hash_drops;
-
-const size_t BUCKET_SIZE = 8;
+const size_t BUCKET_SIZE = 4;
 
 struct hash_bucket {
     hash_slot slot[BUCKET_SIZE];
@@ -80,7 +78,6 @@ inline hash_slot* hash_find(const Board& board) {
 
 /* insert the given position in the hash */
 inline void hash_insert(const Board& board, int depth, int lower_bound, int upper_bound, Move move) {
-    size_t p = (board.hash_key) % hash_size;
     hash_slot* cand = hash_find(board);
 
     if(cand == 0) {
@@ -98,8 +95,6 @@ inline void hash_insert(const Board& board, int depth, int lower_bound, int uppe
             lower_bound = std::max(lower_bound, cand->lower_bound);
             upper_bound = std::min(upper_bound, cand->upper_bound);
         }
-    } else if(cand->hash_key != p+1) {
-        hash_drops ++;
     }
 
     cand->hash_key = board.hash_key;

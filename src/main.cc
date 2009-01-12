@@ -45,7 +45,6 @@ int main(int argc, char** argv)
 
     /* init stuff */
     init_hash_code();
-    init_search();
     init_bitboard();
 
     /* start with 100mb o hash size */
