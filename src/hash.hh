@@ -23,7 +23,7 @@ struct hash_bucket {
 
 size_t hash_size = 0;
 
-hash_bucket* hash_table[2];
+hash_bucket* hash_table[2] = {0, 0};
 
 bool is_prime(size_t N) {
     if(N==2) return true;
@@ -69,26 +69,23 @@ inline hash_slot* find_key(const Board& board, hash_bucket* bucket) {
     return 0;
 }
 
-/* search the given position in the hash */
 inline hash_slot* hash_find(const Board& board) {
     hash_bucket* bucket = get_bucket(board);
-
     return find_key(board, bucket);
 }
 
 /* insert the given position in the hash */
 inline void hash_insert(const Board& board, int depth, int lower_bound, int upper_bound, Move move) {
-    hash_slot* cand = hash_find(board);
+
+    hash_bucket* bucket = get_bucket(board);
+    hash_slot* cand = find_key(board, bucket);
 
     if(cand == 0) {
-        hash_bucket* bucket = get_bucket(board);
         for(int i=BUCKET_SIZE-1;i>0;--i) {
             bucket->slot[i]=bucket->slot[i-1];
         }
         cand = &bucket->slot[0];
-    }
-
-    if(cand->hash_key == board.hash_key) {
+    } else {
         if(cand->depth > depth) {
             return;
         } else if(cand->depth == depth) {
@@ -109,7 +106,6 @@ namespace {
 
     struct init_hash_table {
         init_hash_table() {
-            hash_table[0]=hash_table[1]=0;
             hash_set_size(1000);
         }
     } _init_hash_table;
