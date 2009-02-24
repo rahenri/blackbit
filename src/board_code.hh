@@ -8,7 +8,14 @@ const int encode_table[][7] = {{ 0, 1, 2, 3, 4, 5, 6},
 struct board_code {
     uint32_t code[8];
 
-    void encode() {
+    void board_code(const Board& board) {
+        this->encode(board);
+    }
+
+    void board_code() {
+    }
+
+    void encode(const Board& board) {
         for(int l=0;l<8;++l) {
             code[l] = 0;
             for(int c=0;c<8;++c) {
@@ -29,11 +36,5 @@ struct board_code {
     }
 
 };
-
-board_code enc() {
-    board_code bc;
-    bc.encode();
-    return bc;
-}
 
 #endif
