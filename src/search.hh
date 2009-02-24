@@ -80,6 +80,7 @@ int search(int depth, int alfa = -INFINITE_SCORE, int beta = INFINITE_SCORE, int
         return beta;
 
 
+    /* desabilita tabela hash se estiver em quiescent */
     if(not is_quiescent) {
         slot = hash_find(board);
         
@@ -116,7 +117,7 @@ int search(int depth, int alfa = -INFINITE_SCORE, int beta = INFINITE_SCORE, int
         n = board.listMovesg(list + list_offset, board.turn) + list_offset;
     }
 
-
+    /* ordenas as jogadas da melhor para pior candidata */
     sort_moves(list+list_offset, n-list_offset);
 
     ASSERT(n < 512);
@@ -142,18 +143,14 @@ int search(int depth, int alfa = -INFINITE_SCORE, int beta = INFINITE_SCORE, int
         mi = board.move(list[i]);
 
         /* recursão */
-        if(depth <= 1) {
-            t = -search(depth-1, -beta, -std::max(alfa, best_score), flags);
-        } else { 
-            t = best_score + 1;
+        t = best_score + 1;
 
-            if(i > 0 and not is_pv) {
-                t = -search(depth-1, -best_score-1, -best_score, flags);
-            }
+        if(i > 0 and not is_pv and depth > 1) {
+            t = -search(depth-1, -best_score-1, -best_score, flags);
+        }
 
-            if(t > best_score) {
-                t = -search(depth-1, -beta, -std::max(alfa, best_score), flags | SEARCH_PV);
-            }
+        if(t > best_score) {
+            t = -search(depth-1, -beta, -std::max(alfa, best_score), flags | SEARCH_PV);
         }
 
         /* volta movimento */
