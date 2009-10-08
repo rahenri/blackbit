@@ -603,4 +603,12 @@ void print_bitboard(FILE* f, BitBoard b) {
     fprintf(f, "\n");
 }
 
+namespace {
+    struct __init_bitboard_t__ {
+        __init_bitboard_t__() {
+            init_bitboard();
+        }
+    } __init_bitboard__;
+}
+
 #endif

@@ -33,24 +33,15 @@ int main(int argc, char** argv)
     int depth = dificuldade;
     int my_time = 0, op_time = 0;
     bool ponder = false, post = false;
-    int random_play = 0;
 
     if(argc==1)
         log_file = fopen("tmp.txt","w");
     else
         log_file = fopen(argv[1],"w");
 
-    int seed = time(NULL);
-    fprintf(log_file,"seed %d\n", seed);
-
-    /* init stuff */
-    init_hash_code();
-    init_bitboard();
-
     /* start with 100mb o hash size */
     hash_set_size(100*(1<<20));
 
-    srand48(seed);
     board.setInitial();
     ASSERT(board.checkBoard());
     board.check_hash_key(__LINE__);
@@ -71,10 +62,9 @@ int main(int argc, char** argv)
         args = comando + i;
 
         if(strcmp(comando, "xboard")==0) {
-            /* so uso o xabord mesmo, não faça nada aqui */
+            /* so uso o xboard mesmo, não faça nada aqui */
         } else if(strcmp(comando, "protover")==0) {
             /* features */
-            /* não queremos nenhum sinal */
             printf("feature myname=\"raphael-chess%d\" ping=1 usermove=1 draw=0 variants=\"normal\" sigint=0 sigterm=0 setboard=1 playother=1 analyze=0 colors=0 done=1\n",dificuldade);
         } else if(strcmp(comando, "new")==0) {
             /* reinicia tudo */
@@ -87,8 +77,7 @@ int main(int argc, char** argv)
             /* fecha */
             break;
         } else if(strcmp(comando, "random")==0) {
-            /* coloca aleatoriedade nas jogadas */
-            random_play = not random_play;
+            /* not used */
         } else if(strcmp(comando, "force")==0) {
             /* pare de jogar */
             go = 0;
@@ -142,7 +131,7 @@ int main(int argc, char** argv)
             /* não coloca resultados da busca */
             post = false;
         } else if(strcmp(comando, "post")==0) {
-            /* coloca resultados da busca */
+            /* imprime resultados da busca */
             post = true;
         } else if(strcmp(comando, "accepted")==0) {
         } else if(strcmp(comando, "analyze")==0) {
@@ -171,7 +160,7 @@ int main(int argc, char** argv)
             }
         }
         fflush(stdout);
-        /* joga de for o caso */
+        /* joga se for o caso */
         if(play == board.turn and go) {
             Move m = ComputerPlay(depth, post);
             printf("move %c%c%c%c\n",m.oc()+'a',m.ol()+'1',m.dc()+'a',m.dl()+'1');

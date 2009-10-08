@@ -966,4 +966,12 @@ Move parse_move_string(std::string move_str) {
     return resp;
 }
 
+namespace {
+    struct __init_hash_code_t__ {
+        __init_hash_code_t__() {
+            init_hash_code();
+        }
+    } __init_hash_code__;
+}
+
 #endif
