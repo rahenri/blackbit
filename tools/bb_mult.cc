@@ -13,7 +13,7 @@ int main(void) {
 
     uint32_t b1 = rand(), b2 = rand();
 
-    for(int i=0;i<REP;++i) {
+    for(unsigned int i=0;i<REP;++i) {
         a1 = (int(a1 & 0xffffffff) * b1) | ((int(a1 >> 32) * b2) >> 16);
         //a1 = a1 * a2;
     }

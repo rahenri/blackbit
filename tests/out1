@@ -1,0 +1,264 @@
+seed 1231385277
+-> xboard
+-> protover 2
+<- feature myname="raphael-chess8" ping=1 usermove=1 draw=0 variants="normal" sigint=0 sigterm=0 setboard=1 playother=1 analyze=0 colors=0 done=1
+-> accepted myname
+-> accepted ping
+-> accepted usermove
+-> accepted draw
+-> accepted variants
+-> accepted sigint
+-> accepted sigterm
+-> accepted setboard
+-> accepted playother
+-> accepted analyze
+-> accepted colors
+-> accepted done
+-> new
+-> random
+-> level 40 5 0
+-> hard
+-> ping 1
+<- pong 1
+-> force
+-> computer
+-> time 30000
+-> otim 30000
+-> go
+rnbqkbnr/pppppppp/11111111/11111111/11111111/11111111/PPPPPPPP/RNBQKBNR w
+
++6 e2e3
+
+hash hits 0
+exact hits 0
+nodes visited 3109942
+null moves 0
+null prunes 0
+pv fails 0
+prune efficiency 0.224911
+hash usage 0.000000
+hash drops 0
+false hit 0
+hash inserts 0
+
+<- move e2e3
+rnbqkbnr/pppppppp/11111111/11111111/11111111/1111P111/PPPP1PPP/RNBQKBNR b
+rough score -19
+
+-> time 29664
+-> otim 29677
+-> usermove e7e6
+rnbqkbnr/pppp1ppp/1111p111/11111111/11111111/1111P111/PPPP1PPP/RNBQKBNR w
+
+rough score +0
+rnbqkbnr/pppp1ppp/1111p111/11111111/11111111/1111P111/PPPP1PPP/RNBQKBNR w
+
++2 g1f3
+
+hash hits 0
+exact hits 0
+nodes visited 9385031
+null moves 0
+null prunes 0
+pv fails 0
+prune efficiency 0.214632
+hash usage 0.000000
+hash drops 88
+false hit 0
+hash inserts 0
+
+<- move g1f3
+rnbqkbnr/pppp1ppp/1111p111/11111111/11111111/1111PN11/PPPP1PPP/RNBQKB1R b
+rough score -10
+
+-> time 28965
+-> otim 28604
+-> usermove b7b6
+rnbqkbnr/p1pp1ppp/1p11p111/11111111/11111111/1111PN11/PPPP1PPP/RNBQKB1R w
+
+rough score +4
+rnbqkbnr/p1pp1ppp/1p11p111/11111111/11111111/1111PN11/PPPP1PPP/RNBQKB1R w
+
++5 b2b3
+
+hash hits 0
+exact hits 0
+nodes visited 12830662
+null moves 0
+null prunes 0
+pv fails 0
+prune efficiency 0.177710
+hash usage 0.000000
+hash drops 7051
+false hit 0
+hash inserts 0
+
+<- move b2b3
+rnbqkbnr/p1pp1ppp/1p11p111/11111111/11111111/1P11PN11/P1PP1PPP/RNBQKB1R b
+rough score -10
+
+-> time 28026
+-> otim 27393
+-> usermove g8f6
+rnbqkb1r/p1pp1ppp/1p11pn11/11111111/11111111/1P11PN11/P1PP1PPP/RNBQKB1R w
+
+rough score +2
+rnbqkb1r/p1pp1ppp/1p11pn11/11111111/11111111/1P11PN11/P1PP1PPP/RNBQKB1R w
+
++9 b1c3
+
+hash hits 0
+exact hits 0
+nodes visited 13741047
+null moves 0
+null prunes 0
+pv fails 0
+prune efficiency 0.259076
+hash usage 0.000000
+hash drops 67714
+false hit 0
+hash inserts 0
+
+<- move b1c3
+rnbqkb1r/p1pp1ppp/1p11pn11/11111111/11111111/1PN1PN11/P1PP1PPP/R1BQKB1R b
+rough score -20
+
+-> time 26984
+-> otim 26078
+-> usermove c8b7
+rn1qkb1r/pbpp1ppp/1p11pn11/11111111/11111111/1PN1PN11/P1PP1PPP/R1BQKB1R w
+
+rough score +8
+rn1qkb1r/pbpp1ppp/1p11pn11/11111111/11111111/1PN1PN11/P1PP1PPP/R1BQKB1R w
+
++7 c1b2
+
+hash hits 0
+exact hits 0
+nodes visited 19636030
+null moves 0
+null prunes 0
+pv fails 0
+prune efficiency 0.209238
+hash usage 0.000000
+hash drops 366837
+false hit 0
+hash inserts 0
+
+<- move c1b2
+rn1qkb1r/pbpp1ppp/1p11pn11/11111111/11111111/1PN1PN11/PBPP1PPP/R11QKB1R b
+rough score -12
+
+-> time 25508
+-> otim 24094
+-> usermove a7a6
+rn1qkb1r/1bpp1ppp/pp11pn11/11111111/11111111/1PN1PN11/PBPP1PPP/R11QKB1R w
+
+rough score +17
+rn1qkb1r/1bpp1ppp/pp11pn11/11111111/11111111/1PN1PN11/PBPP1PPP/R11QKB1R w
+
++17 f1d3
+
+hash hits 0
+exact hits 0
+nodes visited 19210343
+null moves 0
+null prunes 0
+pv fails 0
+prune efficiency 0.227241
+hash usage 0.000000
+hash drops 744260
+false hit 0
+hash inserts 0
+
+<- move f1d3
+rn1qkb1r/1bpp1ppp/pp11pn11/11111111/11111111/1PNBPN11/PBPP1PPP/R11QK11R b
+rough score -31
+
+-> time 23991
+-> otim 22644
+-> usermove f8d6
+rn1qk11r/1bpp1ppp/pp1bpn11/11111111/11111111/1PNBPN11/PBPP1PPP/R11QK11R w
+
+rough score +19
+rn1qk11r/1bpp1ppp/pp1bpn11/11111111/11111111/1PNBPN11/PBPP1PPP/R11QK11R w
+
++30 c3e4
+
+hash hits 0
+exact hits 0
+nodes visited 9040150
+null moves 0
+null prunes 0
+pv fails 0
+prune efficiency 0.230767
+hash usage 0.000000
+hash drops 613135
+false hit 0
+hash inserts 0
+
+<- move c3e4
+rn1qk11r/1bpp1ppp/pp1bpn11/11111111/1111N111/1P1BPN11/PBPP1PPP/R11QK11R b
+rough score -22
+
+-> time 22520
+-> otim 20784
+-> usermove f6e4
+rn1qk11r/1bpp1ppp/pp1bp111/11111111/1111n111/1P1BPN11/PBPP1PPP/R11QK11R w
+
+rough score -301
+rn1qk11r/1bpp1ppp/pp1bp111/11111111/1111n111/1P1BPN11/PBPP1PPP/R11QK11R w
+
++321 d3e4
+
+hash hits 0
+exact hits 0
+nodes visited 6871863
+null moves 0
+null prunes 0
+pv fails 0
+prune efficiency 0.178279
+hash usage 0.000000
+hash drops 510790
+false hit 0
+hash inserts 0
+
+<- move d3e4
+rn1qk11r/1bpp1ppp/pp1bp111/11111111/1111B111/1P11PN11/PBPP1PPP/R11QK11R b
+rough score -27
+
+-> time 20879
+-> otim 20332
+-> usermove b7e4
+rn1qk11r/11pp1ppp/pp1bp111/11111111/1111b111/1P11PN11/PBPP1PPP/R11QK11R w
+
+rough score -306
+rn1qk11r/11pp1ppp/pp1bp111/11111111/1111b111/1P11PN11/PBPP1PPP/R11QK11R w
+
++253 b2g7
+
+hash hits 0
+exact hits 0
+nodes visited 2128578
+null moves 0
+null prunes 0
+pv fails 0
+prune efficiency 0.170040
+hash usage 0.000000
+hash drops 182355
+false hit 0
+hash inserts 0
+
+<- move b2g7
+rn1qk11r/11pp1pBp/pp1bp111/11111111/1111b111/1P11PN11/P1PP1PPP/R11QK11R b
+rough score +148
+
+-> time 20427
+-> otim 19245
+-> usermove h8g8
+<- Illegal move: <- 
+-> force
+-> ping 2
+<- pong 2
+-> quit
+saindo...

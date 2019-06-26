@@ -1,0 +1,8 @@
+- Melhorar a tabela hash, guardar o limite inferior e o superior
+- Mudar representação de posição para um número
+
+- Melhorar heuristica
+
+- Melhorar a poda em situações de mate.
+- ponder
+- timelimit
