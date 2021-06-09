@@ -24,11 +24,11 @@ struct Move {
   int16_t o, d;
 };
 
-std::ostream &operator<<(std::ostream &stream, const Move &m) {
+inline std::ostream &operator<<(std::ostream &stream, const Move &m) {
   return stream << m.oc() + 'a' << m.ol() + '1' << m.dc() + 'a' << m.dl() + '1';
 }
 
-void print_move(FILE *file, const Move &m) {
+inline void print_move(FILE *file, const Move &m) {
   fprintf(file, "%c%c%c%c", m.oc() + 'a', m.ol() + '1', m.dc() + 'a',
           m.dl() + '1');
 }

@@ -1,9 +1,8 @@
-#ifndef DEBUG_HH
-#define DEBUG_HH
+#pragma once 
 
 #include <cstdio>
 
-FILE *log_file = NULL;
+extern FILE *log_file;
 
 #ifdef _DEBUG
 #define SUICIDE()                                                              \
@@ -25,6 +24,4 @@ FILE *log_file = NULL;
 #define NOINLINE __attribute__((noinline))
 #else
 #define NOINLINE
-#endif
-
 #endif

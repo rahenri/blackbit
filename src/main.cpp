@@ -32,6 +32,8 @@ int main(int argc, char **argv) {
   int my_time = 0, op_time = 0;
   bool ponder = false, post = false;
 
+  Board board;
+
   if (argc == 1)
     log_file = fopen("tmp.txt", "w");
   else
@@ -148,9 +150,9 @@ int main(int argc, char **argv) {
       /* jogada do oponente */
       Move m;
       if (strcmp(comando, "usermove") == 0)
-        m = parse_move_string(args);
+        m = parse_move_string(board, args);
       else
-        m = parse_move_string(comando);
+        m = parse_move_string(board, comando);
       if (not board.validateMove(m)) {
         printf("Illegal move: ");
         print_move(stdout, m);
@@ -165,7 +167,7 @@ int main(int argc, char **argv) {
     fflush(stdout);
     /* joga se for o caso */
     if (play == board.turn and go) {
-      Move m = ComputerPlay(depth, post);
+      Move m = ComputerPlay(board, depth, post);
       printf("move %c%c%c%c\n", m.oc() + 'a', m.ol() + '1', m.dc() + 'a',
              m.dl() + '1');
       board.move(m);

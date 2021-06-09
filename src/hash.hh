@@ -1,5 +1,4 @@
-#ifndef HASH_HH
-#define HASH_HH
+#pragma once
 
 #include "board.hh"
 #include "random.hh"
@@ -21,11 +20,11 @@ struct hash_bucket {
   hash_slot slot[BUCKET_SIZE];
 };
 
-size_t hash_size = 0;
+extern size_t hash_size;
 
-hash_bucket *hash_table[2] = {0, 0};
+extern hash_bucket *hash_table[2];
 
-bool is_prime(size_t N) {
+inline bool is_prime(size_t N) {
   if (N == 2)
     return true;
   if (N % 2 == 0)
@@ -37,13 +36,13 @@ bool is_prime(size_t N) {
   return true;
 }
 
-size_t next_prime(size_t N) {
+inline size_t next_prime(size_t N) {
   while (not is_prime(N))
     ++N;
   return N;
 }
 
-void hash_set_size(size_t size) {
+inline void hash_set_size(size_t size) {
   hash_size = next_prime(size / sizeof(hash_bucket) / 2);
 
   for (int turn = 0; turn < 2; ++turn) {
@@ -106,13 +105,3 @@ inline void hash_insert(const Board &board, int depth, int lower_bound,
   cand->depth = depth;
   cand->move = move;
 }
-
-/* initialize the hash table */
-namespace {
-
-struct init_hash_table {
-  init_hash_table() { hash_set_size(1000); }
-} _init_hash_table;
-} // namespace
-
-#endif

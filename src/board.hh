@@ -1,5 +1,4 @@
-#ifndef BOARD_HH
-#define BOARD_HH
+#pragma once
 
 #include "bitboard.hh"
 #include "debug.hh"
@@ -53,19 +52,8 @@ struct MoveInfo {
   Pos p;
 };
 
-uint64_t hash_code[64][8][2];
-uint64_t hash_code_turn;
-
-void init_hash_code() {
-  for (int p = 0; p < 64; ++p) {
-    for (int owner = 0; owner < 2; ++owner) {
-      for (int type = 0; type < 8; ++type) {
-        hash_code[p][type][owner] = rand64();
-      }
-    }
-  }
-  hash_code_turn = rand64();
-}
+extern uint64_t hash_code[64][8][2];
+extern uint64_t hash_code_turn;
 
 struct Board {
   Pos b[64];
@@ -659,7 +647,7 @@ struct Board {
     return this->bb_blockers[WHITE] | this->bb_blockers[BLACK];
   }
 
-  int popgMoves(int o, BitBoard b, Move *list) {
+  int popgMoves(int o, BitBoard b, Move *list) const {
     int n = 0;
     while (not b.empty()) {
       int d = b.pop_place();
@@ -687,7 +675,7 @@ struct Board {
     }
   }
 
-  int listPawnMovesg(int color, int place, Move *list) {
+  int listPawnMovesg(int color, int place, Move *list) const {
     BitBoard blockers = this->getBlockers();
     if (this->passan_place != 64)
       blockers.set(this->passan_place);
@@ -696,7 +684,7 @@ struct Board {
     return popgMoves(place, dest, list);
   }
 
-  int listPawnAttacksg(int color, int place, Move *list) {
+  int listPawnAttacksg(int color, int place, Move *list) const {
     BitBoard blockers = this->getBlockers();
     if (this->passan_place < 64)
       blockers.set(this->passan_place);
@@ -705,35 +693,35 @@ struct Board {
     return popgMoves(place, dest, list);
   }
 
-  int listKnightMovesg(int color, int place, Move *list) {
+  int listKnightMovesg(int color, int place, Move *list) const {
     BitBoard dest = get_knight_moves(place) & ~(this->bb_blockers[color]);
     return popgMoves(place, dest, list);
   }
 
-  int listKnightAttacksg(int color, int place, Move *list) {
+  int listKnightAttacksg(int color, int place, Move *list) const {
     BitBoard dest =
         get_knight_moves(place) & this->bb_blockers[OPPONENT(color)];
     return popgMoves(place, dest, list);
   }
 
-  int countKnightMovesg(int color, int place) {
+  int countKnightMovesg(int color, int place) const {
     BitBoard dest = get_knight_moves(place) & ~(this->bb_blockers[color]);
     return dest.pop_count();
   }
 
-  int listRookMovesg(int color, int place, Move *list) {
+  int listRookMovesg(int color, int place, Move *list) const {
     BitBoard dest = get_rook_moves(place, this->getBlockers()) &
                     ~(this->bb_blockers[color]);
     return popgMoves(place, dest, list);
   }
 
-  int listRookAttacksg(int color, int place, Move *list) {
+  int listRookAttacksg(int color, int place, Move *list) const {
     BitBoard dest = get_rook_moves(place, this->getBlockers()) &
                     this->bb_blockers[OPPONENT(color)];
     return popgMoves(place, dest, list);
   }
 
-  int countRookMovesg(int color, int place) {
+  int countRookMovesg(int color, int place) const {
     BitBoard block = ((this->bb_blockers[color] ^ this->bbPeca[color][ROOK]) ^
                       this->bbPeca[color][QUEEN]);
     // BitBoard block = this->bb_blockers[color];
@@ -743,19 +731,19 @@ struct Board {
     return dest.pop_count();
   }
 
-  int listBishopMovesg(int color, int place, Move *list) {
+  int listBishopMovesg(int color, int place, Move *list) const {
     BitBoard dest = get_bishop_moves(place, this->getBlockers()) &
                     ~(this->bb_blockers[color]);
     return popgMoves(place, dest, list);
   }
 
-  int listBishopAttacksg(int color, int place, Move *list) {
+  int listBishopAttacksg(int color, int place, Move *list) const {
     BitBoard dest = get_bishop_moves(place, this->getBlockers()) &
                     this->bb_blockers[OPPONENT(color)];
     return popgMoves(place, dest, list);
   }
 
-  int countBishopMovesg(int color, int place) {
+  int countBishopMovesg(int color, int place) const {
     BitBoard block = ((this->bb_blockers[color] ^ this->bbPeca[color][BISHOP]) ^
                       this->bbPeca[color][QUEEN]);
     // BitBoard block = (this->bb_blockers[color]);
@@ -765,23 +753,23 @@ struct Board {
     return dest.pop_count();
   }
 
-  int listKingMovesg(int color, int place, Move *list) {
+  int listKingMovesg(int color, int place, Move *list) const {
     BitBoard dest = get_king_moves(place) & ~(this->bb_blockers[color]);
     return popgMoves(place, dest, list);
   }
 
-  int listKingAttacksg(int color, int place, Move *list) {
+  int listKingAttacksg(int color, int place, Move *list) const {
     BitBoard dest = get_king_moves(place) & this->bb_blockers[OPPONENT(color)];
     return popgMoves(place, dest, list);
   }
 
-  int listQueenMovesg(int color, int place, Move *list) {
+  int listQueenMovesg(int color, int place, Move *list) const {
     BitBoard dest = get_queen_moves(place, this->getBlockers()) &
                     ~(this->bb_blockers[color]);
     return popgMoves(place, dest, list);
   }
 
-  int listQueenAttacksg(int color, int place, Move *list) {
+  int listQueenAttacksg(int color, int place, Move *list) const {
     BitBoard dest = get_queen_moves(place, this->getBlockers()) &
                     this->bb_blockers[OPPONENT(color)];
     return popgMoves(place, dest, list);
@@ -797,7 +785,7 @@ struct Board {
     return dest.pop_count();
   }
 
-  NOINLINE int listMovesg(Move *list, int t) {
+  NOINLINE int listMovesg(Move *list, int t) const {
     int n = 0;
 
     for (int i = 0; i < size_table[t][PAWN]; ++i) {
@@ -827,7 +815,7 @@ struct Board {
     return n;
   }
 
-  NOINLINE int listAttacksg(Move *list, int t) {
+  NOINLINE int listAttacksg(Move *list, int t) const {
     int n = 0;
 
     for (int i = 0; i < size_table[t][PAWN]; ++i) {
@@ -887,7 +875,7 @@ struct Board {
     return true;
   }
 
-  NOINLINE int eval_pawns() {
+  NOINLINE int eval_pawns() const {
     int pawn_score = 0;
 
     for (int t = 0; t < 2; ++t) {
@@ -909,7 +897,7 @@ struct Board {
     return pawn_score;
   }
 
-  NOINLINE int eval() {
+  NOINLINE int eval() const {
     int score;
     int pawn_score = 0;
     int mob_score = 0;
@@ -965,7 +953,7 @@ struct Board {
     return true;
   }
 
-  bool repeated() {
+  bool repeated() const {
     int conta = 0;
     for (int i = 0; i < move_count; ++i) {
       if (history[i] == hash_key) {
@@ -977,9 +965,9 @@ struct Board {
     }
     return false;
   }
-} board;
+};
 
-Move parse_move_string(std::string move_str) {
+inline Move parse_move_string(const Board &board, std::string move_str) {
   Move resp;
   if (move_str == "o-o-o" or move_str == "O-O-O" or move_str == "0-0-0") {
     if (board.turn == WHITE)
@@ -997,11 +985,3 @@ Move parse_move_string(std::string move_str) {
               move_str[2] - 'a');
   return resp;
 }
-
-namespace {
-struct __init_hash_code_t__ {
-  __init_hash_code_t__() { init_hash_code(); }
-} __init_hash_code__;
-} // namespace
-
-#endif
