@@ -11,11 +11,12 @@ CXXFLAGS=-O3 -fomit-frame-pointer -mfpmath=sse
 
 CXXFLAGS+=-O3 -Wall -pipe -march=native -flto
 
+all: blackbit
 
-bin/chess: src/main.cc src/board_code.hh src/board.hh src/debug.hh src/hash.hh src/move.hh src/random.hh src/search.hh src/bitboard.hh Makefile
-	mkdir bin
-	${CXX} src/main.cc -o bin/chess -pipe ${CXXFLAGS}
+
+blackbit: src/main.cc src/board_code.hh src/board.hh src/debug.hh src/hash.hh src/move.hh src/random.hh src/search.hh src/bitboard.hh Makefile
+	${CXX} src/main.cc -o blackbit -pipe ${CXXFLAGS}
 
 
 clean:
-	rm bin/chess
+	rm blackbit
