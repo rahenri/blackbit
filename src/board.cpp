@@ -1,4 +1,4 @@
-#include "board.hh"
+#include "board.h"
 
 uint64_t hash_code[64][8][2];
 uint64_t hash_code_turn;

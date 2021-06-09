@@ -8,11 +8,11 @@
 #include <stdint.h>
 #include <string>
 
-#include "bitboard.hh"
-#include "board.hh"
-#include "debug.hh"
-#include "hash.hh"
-#include "search.hh"
+#include "bitboard.h"
+#include "board.h"
+#include "debug.h"
+#include "hash.h"
+#include "search.h"
 
 using namespace std;
 

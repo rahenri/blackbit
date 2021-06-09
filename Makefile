@@ -11,11 +11,13 @@ CXXFLAGS=-O3 -fomit-frame-pointer -mfpmath=sse
 
 CXXFLAGS+=-O3 -Wall -pipe -march=native -flto
 
-TESTS=$(wildcard tests/*.out)
+TESTS_INPUTS=$(wildcard tests/*.in)
+TESTS_OUTPUTS=$(patsubst %.in, %.out, ${TESTS_INPUTS})
 
-HEADERS=src/board_code.hh src/board.hh src/debug.hh src/hash.hh src/move.hh src/random.hh src/search.hh src/bitboard.hh Makefile
+HEADERS=src/board_code.h src/board.h src/debug.h src/hash.h src/move.h src/random.h src/search.h src/bitboard.h Makefile
 
-OBJECTS=build/main.o build/search.o build/debug.o build/board.o build/bitboard.o build/random.o build/hash.o
+SOURCES=$(wildcard src/*.cpp)
+OBJECTS=$(shell find src | grep cpp$ | sed 's:^src:build:' | sed 's:cpp$$:o:')
 
 all: blackbit
 
@@ -29,8 +31,9 @@ blackbit: ${OBJECTS} Makefile
 %.out: %.in blackbit
 	time ./blackbit < $< > $@
 
-test: ${TESTS}
+test: ${TESTS_OUTPUTS}
+	echo ${TESTS_OUTPUTS}
 
 clean:
-	rm blackbit
-	rm -rf bin
+	rm -f blackbit
+	rm -rf build

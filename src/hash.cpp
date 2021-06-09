@@ -1,4 +1,4 @@
-#include "hash.hh"
+#include "hash.h"
 
 size_t hash_size = 0;
 

@@ -1,10 +1,10 @@
 #pragma once
 
-#include "bitboard.hh"
-#include "debug.hh"
-#include "move.hh"
-#include "pieces.hh"
-#include "random.hh"
+#include "bitboard.h"
+#include "debug.h"
+#include "move.h"
+#include "pieces.h"
+#include "random.h"
 
 #include <string>
 

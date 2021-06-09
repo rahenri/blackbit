@@ -1,6 +1,6 @@
-#include "search.hh"
-#include "board.hh"
-#include "hash.hh"
+#include "search.h"
+#include "board.h"
+#include "hash.h"
 
 /* configurable params */
 

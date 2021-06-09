@@ -1,7 +1,8 @@
 #pragma once
 
-#include "board.hh"
-#include "random.hh"
+#include "board.h"
+#include "random.h"
+
 #include <algorithm>
 
 /* configurable params */

@@ -1,4 +1,4 @@
-#include "bitboard.hh"
+#include "bitboard.h"
 
 uint8_t pop_count_table[1 << 16];
 uint8_t ctz_table[1 << 16];

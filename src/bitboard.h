@@ -5,8 +5,8 @@
 #include <cstdio>
 #include <stdint.h>
 
-#include "debug.hh"
-#include "pieces.hh"
+#include "debug.h"
+#include "pieces.h"
 
 extern uint8_t pop_count_table[1 << 16];
 extern uint8_t ctz_table[1 << 16];
