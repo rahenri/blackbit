@@ -2,17 +2,17 @@
 
 #include <numeric>
 
-struct Place {
+struct __attribute__((__packed__)) Place {
 public:
   inline Place() : _place(0) {}
   /* not BB */
-  inline int line() const { return _place >> 3; }
+  inline int8_t line() const { return _place >> 3; }
 
   /* not BB */
-  inline int col() const { return _place & 7; }
+  inline int8_t col() const { return _place & 7; }
 
   /* not BB */
-  static inline Place of_line_of_col(int lin, int col) {
+  static inline Place of_line_of_col(int8_t lin, int8_t col) {
     return Place(col | (lin << 3));
   }
 

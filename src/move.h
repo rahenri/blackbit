@@ -6,15 +6,15 @@
 #include <cstdio>
 #include <iostream>
 
-struct Move {
-  Move(int8_t ol, int8_t oc, int8_t dl, int8_t dc)
+struct __attribute__((__packed__)) Move {
+  inline Move(int8_t ol, int8_t oc, int8_t dl, int8_t dc)
       : o(Place::of_line_of_col(ol, oc)), d(Place::of_line_of_col(dl, dc)) {}
-  Move(Place o, Place d) : o(o), d(d) {}
-  Move() {}
-  int8_t ol() const { return o.line(); }
-  int8_t oc() const { return o.col(); }
-  int8_t dl() const { return d.line(); }
-  int8_t dc() const { return d.col(); }
+  inline Move(Place o, Place d) : o(o), d(d) {}
+  inline Move() {}
+  inline int8_t ol() const { return o.line(); }
+  inline int8_t oc() const { return o.col(); }
+  inline int8_t dl() const { return d.line(); }
+  inline int8_t dc() const { return d.col(); }
   inline bool operator==(const Move &m) const { return o == m.o and d == m.d; }
   inline bool operator!=(const Move &m) const { return o != m.o or d != m.d; }
   inline bool is_valid() const {

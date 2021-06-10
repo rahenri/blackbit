@@ -29,7 +29,7 @@ blackbit: ${OBJECTS} Makefile
 	${CXX} ${OBJECTS} -o blackbit -pipe ${CXXFLAGS}
 
 %.out: %.in blackbit
-	time ./blackbit < $< > $@
+	gtime -v ./blackbit < $< > $@
 
 test: ${TESTS_OUTPUTS}
 	echo ${TESTS_OUTPUTS}
