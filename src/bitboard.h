@@ -60,150 +60,81 @@ public:
       : m_lower(lower), m_upper(upper) {}
 
   inline BitBoard operator|(const BitBoard &bb) const {
-    return BitBoard(m_lower | bb.m_lower, m_upper | bb.m_upper);
+    return BitBoard(m_board64 | bb.m_board64);
   }
   inline BitBoard &operator|=(const BitBoard &bb) {
-    m_lower |= bb.m_lower;
-    m_upper |= bb.m_upper;
+    m_board64 |= bb.m_board64;
     return *this;
   }
 
   inline BitBoard operator&(const BitBoard &bb) const {
-    return BitBoard(m_lower & bb.m_lower, m_upper & bb.m_upper);
+    return BitBoard(m_board64 & bb.m_board64);
   }
   inline BitBoard &operator&=(const BitBoard &bb) {
-    m_lower &= bb.m_lower;
-    m_upper &= bb.m_upper;
+    m_board64 &= bb.m_board64;
     return *this;
   }
 
   inline BitBoard operator^(const BitBoard &bb) const {
-    return BitBoard(m_lower ^ bb.m_lower, m_upper ^ bb.m_upper);
+    return BitBoard(m_board64 ^ bb.m_board64);
   }
   inline BitBoard &operator^=(const BitBoard &bb) {
-    m_lower ^= bb.m_lower;
-    m_upper ^= bb.m_upper;
+    m_board64 ^= bb.m_board64;
     return *this;
   }
 
   inline BitBoard operator>>(int shift) const {
-    if (shift <= 0) {
-      return *this;
-    } else if (shift < 32) {
-      return BitBoard((m_lower >> shift) | (m_upper << (32 - shift)),
-                      m_upper >> shift);
-    } else if (shift < 64) {
-      return BitBoard(m_upper >> (shift - 32), 0);
-    } else {
-      return BitBoard(0);
-    }
+    return BitBoard(m_board64 >> shift);
   }
   inline BitBoard &operator>>=(int shift) {
-    if (shift <= 0) {
-      /* do nothing */
-    } else if (shift < 32) {
-      m_lower = (m_lower >> shift) | (m_upper << (32 - shift));
-      m_upper = m_upper >> shift;
-    } else if (shift < 64) {
-      m_lower = m_upper >> (shift - 32);
-      m_upper = 0;
-    } else {
-      m_lower = m_upper = 0;
-    }
+    m_board64 >>= shift;
     return *this;
   }
 
   inline BitBoard operator<<(int shift) const {
-    if (shift < 32) {
-      if (shift <= 0) {
-        return *this;
-      } else {
-        return BitBoard((m_lower << shift),
-                        (m_upper << shift) | (m_lower >> (32 - shift)));
-      }
-    } else {
-      if (shift < 64) {
-        return BitBoard(0, m_lower << (shift - 32));
-      } else {
-        return BitBoard(0);
-      }
-    }
+    return BitBoard(m_board64 << shift);
   }
   inline BitBoard &operator<<=(int shift) {
-    if (shift < 32) {
-      if (shift > 0) {
-        m_upper = (m_upper << shift) | (m_lower >> (32 - shift));
-        m_lower = m_lower << shift;
-      }
-    } else {
-      if (shift < 64) {
-        m_upper = m_lower << (shift - 32);
-        m_lower = 0;
-      } else {
-        m_lower = m_upper = 0;
-      }
-    }
+    m_board64 <<= shift;
     return *this;
   }
 
-  inline BitBoard operator~() const { return BitBoard(~m_lower, ~m_upper); }
+  inline BitBoard operator~() const { return BitBoard(~m_board64); }
 
   inline bool operator==(const BitBoard &bb) {
-    return m_lower == bb.m_lower and m_upper == bb.m_upper;
+    return m_board64 == bb.m_board64;
   }
   inline bool operator!=(const BitBoard &bb) {
-    return m_lower != bb.m_lower or m_upper != bb.m_upper;
+    return m_board64 != bb.m_board64;
   }
 
   inline BitBoard &set(Place place) {
-    int place_int = place.to_int();
-    if (place_int < 32) {
-      m_lower |= (1 << place_int);
-    } else {
-      m_upper |= (1 << (place_int - 32));
-    }
+    m_board64 |= (1ull << place.to_int());
     return *this;
   }
 
   inline BitBoard &clear(Place place) {
-    int place_int = place.to_int();
-    if (place_int < 32) {
-      m_lower &= ~(1 << place_int);
-    } else {
-      m_upper &= ~(1 << (place_int - 32));
-    }
+    m_board64 &= ~(1ull << place.to_int());
     return *this;
   }
 
   inline BitBoard &invert(Place place) {
-    int place_int = place.to_int();
-    if (place_int < 32) {
-      m_lower ^= (1 << place_int);
-    } else {
-      m_upper ^= (1 << (place_int - 32));
-    }
+    m_board64 ^= (1ull << place.to_int());
     return *this;
   }
 
-  inline void clear() { m_upper = m_lower = 0; }
+  inline void clear() { m_board64 = 0; }
 
-  bool inline empty() const { return m_upper == 0 and m_lower == 0; }
+  bool inline empty() const { return m_board64 == 0; }
 
   inline bool is_set(Place place) const {
-    int place_int = place.to_int();
-    if (place_int < 32) {
-      return m_lower & (1 << place_int);
-    } else {
-      return m_upper & (1 << (place_int - 32));
-    }
+    return m_board64 & (1ull << place.to_int());
   }
 
-  inline int pop_count() const {
-    return pop_count32(m_lower) + pop_count32(m_upper);
-  }
+  inline int pop_count() const { return pop_count64(m_board64); }
 
   inline int get_line(int line) const {
-    return (m_board[line / 4] >> ((line % 4) * 8)) & 0xff;
+    return (m_board64 >> (line * 8)) & 0xff;
   }
 
   inline int get_col(int col) const {
@@ -257,6 +188,10 @@ public:
 
   static inline int pop_count32(uint32_t n) {
     return pop_count_table[n & 0xffff] + pop_count_table[n >> 16];
+  }
+
+  static inline int pop_count64(uint64_t n) {
+    return pop_count32(n) + pop_count32(n >> 32);
   }
 
   static BoardArray<BitBoard> pawn_moves[2];
@@ -364,7 +299,6 @@ private:
     struct {
       uint32_t m_lower, m_upper;
     };
-    uint32_t m_board[2];
     uint64_t m_board64;
   };
 };
