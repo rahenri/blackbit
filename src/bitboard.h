@@ -10,9 +10,6 @@
 #include "pieces.h"
 #include "place.h"
 
-extern uint8_t pop_count_table[1 << 16];
-extern uint8_t ctz_table[1 << 16];
-
 static const uint32_t col_mask = 0x01010101u;
 
 static const uint32_t col_rotate_code = 0x10204080u;
@@ -50,14 +47,6 @@ static const BoardArray<uint32_t> diag2_number{
      13, 12, 11, 10, 9, 8, 7, 6, 14, 13, 12, 11, 10, 9, 8, 7}};
 
 const static uint32_t diag_rotate_code = 0x01010101;
-
-inline int pop_count8(uint32_t n) { return pop_count_table[n]; }
-
-inline int pop_count16(uint32_t n) { return pop_count_table[n]; }
-
-inline int pop_count32(uint32_t n) {
-  return pop_count_table[n & 0xffff] + pop_count_table[n >> 16];
-}
 
 #define _min(a, b) ((a) < (b)) ? (a) : (b)
 
@@ -257,6 +246,17 @@ public:
     Place p = get_one_place();
     invert(p);
     return p;
+  }
+
+  static uint8_t pop_count_table[1 << 16];
+  static uint8_t ctz_table[1 << 16];
+
+  static inline int pop_count8(uint32_t n) { return pop_count_table[n]; }
+
+  static inline int pop_count16(uint32_t n) { return pop_count_table[n]; }
+
+  static inline int pop_count32(uint32_t n) {
+    return pop_count_table[n & 0xffff] + pop_count_table[n >> 16];
   }
 
   static BoardArray<BitBoard> pawn_moves[2];

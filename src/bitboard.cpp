@@ -1,7 +1,7 @@
 #include "bitboard.h"
 
-uint8_t pop_count_table[1 << 16];
-uint8_t ctz_table[1 << 16];
+uint8_t BitBoard::pop_count_table[1 << 16];
+uint8_t BitBoard::ctz_table[1 << 16];
 
 BoardArray<BitBoard> BitBoard::pawn_moves[2];
 BoardArray<BitBoard> BitBoard::pawn_moves2[2];
@@ -28,14 +28,14 @@ inline bool is_valid_place(int lin, int col) {
 void init_bitboard() {
   using namespace std;
   /* init_popcount table */
-  pop_count_table[0] = 0;
+  BitBoard::pop_count_table[0] = 0;
   for (int i = 1; i < (1 << 16); ++i) {
-    pop_count_table[i] = pop_count_table[i & (i - 1)] + 1;
+    BitBoard::pop_count_table[i] = BitBoard::pop_count_table[i & (i - 1)] + 1;
   }
 
   /* init ctz table */
   for (int i = 0; i < (1 << 16); ++i) {
-    ctz_table[i] = __builtin_ctz(i);
+    BitBoard::ctz_table[i] = __builtin_ctz(i);
   }
 
   /* init pawn tables */
