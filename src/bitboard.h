@@ -259,6 +259,106 @@ public:
     return p;
   }
 
+  static BoardArray<BitBoard> pawn_moves[2];
+  static BoardArray<BitBoard> pawn_moves2[2];
+  static BoardArray<BitBoard> pawn_captures[2];
+  static BoardArray<BitBoard> pawn_promotion[2];
+  static BoardArray<BitBoard> pawn_passed_mask[2];
+
+  static BoardArray<BitBoard> neighbor_col;
+
+  static BitBoard rook_lin_moves[8][256];
+  static BitBoard rook_col_moves[8][256];
+
+  static BoardArray<BitBoard[256]> bishop_diag1_moves;
+  static BoardArray<BitBoard[256]> bishop_diag2_moves;
+
+  static BoardArray<BitBoard> knight_moves;
+
+  static BoardArray<BitBoard> king_moves;
+
+  static inline BitBoard get_pawn_noncapture_moves(int color, Place place,
+                                                   BitBoard blockers) {
+    BitBoard resp = pawn_moves[color][place] & (~blockers);
+    if (not resp.empty()) {
+      resp |= pawn_moves2[color][place] & (~blockers);
+    }
+    return resp;
+  }
+
+  static inline BitBoard get_pawn_capture_moves(int color, Place place,
+                                                BitBoard blockers) {
+    return pawn_captures[color][place] & blockers;
+  }
+
+  static inline BitBoard
+  get_pawn_capture_promotion_moves(int color, Place place, BitBoard blockers) {
+    return (pawn_captures[color][place] & blockers) |
+           (pawn_promotion[color][place] & (~blockers));
+  }
+
+  static inline BitBoard get_pawn_moves(int color, Place place,
+                                        BitBoard blockers) {
+    return get_pawn_noncapture_moves(color, place, blockers) |
+           get_pawn_capture_moves(color, place, blockers);
+  }
+
+  static inline BitBoard get_knight_moves(Place place) {
+    return knight_moves[place];
+  }
+
+  static inline BitBoard get_bishop_moves(Place place, BitBoard blockers) {
+    int diag1 = diag1_number[place], diag2 = diag2_number[place];
+    int diag1_code = blockers.get_diag1(diag1);
+    int diag2_code = blockers.get_diag2(diag2);
+
+    return bishop_diag1_moves[place][diag1_code] |
+           bishop_diag2_moves[place][diag2_code];
+  }
+
+  static inline BitBoard get_rook_moves(Place place, BitBoard blockers) {
+    int lin = place.line(), col = place.col();
+    int lin_code = blockers.get_line(lin);
+    int col_code = blockers.get_col(col);
+
+    return (rook_lin_moves[col][lin_code] << (lin * 8)) |
+           (rook_col_moves[lin][col_code] << col);
+  }
+
+  static inline BitBoard get_queen_moves(Place place, BitBoard blockers) {
+    return get_rook_moves(place, blockers) | get_bishop_moves(place, blockers);
+  }
+
+  static inline BitBoard get_king_moves(Place place) {
+    return king_moves[place];
+  }
+
+  static inline BitBoard get_passed_pawn_mask(int color, Place place) {
+    return pawn_passed_mask[color][place];
+  }
+
+  static inline BitBoard get_neighbor_col_mask(Place place) {
+    return neighbor_col[place];
+  }
+
+  static inline BitBoard get_col_mask(Place place) {
+    return BitBoard(col_mask << place.col(), col_mask << place.col());
+  }
+
+  inline void print(FILE *f) {
+    char tmp[8][16];
+    for (int l = 0; l < 8; ++l) {
+      for (int c = 0; c < 8; ++c) {
+        tmp[l][c] = '0' + this->is_set(Place::of_line_of_col(l, c));
+      }
+      tmp[l][8] = 0;
+    }
+    for (int l = 7; l >= 0; --l) {
+      fprintf(f, "%s\n", tmp[l]);
+    }
+    fprintf(f, "\n");
+  }
+
 private:
   union {
     struct {
@@ -269,102 +369,3 @@ private:
   };
 };
 
-extern BoardArray<BitBoard> pawn_moves[2];
-extern BoardArray<BitBoard> pawn_moves2[2];
-extern BoardArray<BitBoard> pawn_captures[2];
-extern BoardArray<BitBoard> pawn_promotion[2];
-extern BoardArray<BitBoard> pawn_passed_mask[2];
-
-extern BoardArray<BitBoard> neighbor_col;
-
-extern BitBoard rook_lin_moves[8][256];
-extern BitBoard rook_col_moves[8][256];
-
-extern BoardArray<BitBoard[256]> bishop_diag1_moves;
-extern BoardArray<BitBoard[256]> bishop_diag2_moves;
-
-extern BoardArray<BitBoard> knight_moves;
-
-extern BoardArray<BitBoard> king_moves;
-
-inline BitBoard get_pawn_noncapture_moves(int color, Place place,
-                                          BitBoard blockers) {
-  BitBoard resp = pawn_moves[color][place] & (~blockers);
-  if (not resp.empty()) {
-    resp |= pawn_moves2[color][place] & (~blockers);
-  }
-  return resp;
-}
-
-inline BitBoard get_pawn_capture_moves(int color, Place place,
-                                       BitBoard blockers) {
-  return pawn_captures[color][place] & blockers;
-}
-
-inline BitBoard get_pawn_capture_promotion_moves(int color, Place place,
-                                                 BitBoard blockers) {
-  return (pawn_captures[color][place] & blockers) |
-         (pawn_promotion[color][place] & (~blockers));
-}
-
-inline BitBoard get_pawn_moves(int color, Place place, BitBoard blockers) {
-  return get_pawn_noncapture_moves(color, place, blockers) |
-         get_pawn_capture_moves(color, place, blockers);
-}
-
-inline BitBoard get_knight_moves(Place place) { return knight_moves[place]; }
-
-inline BitBoard get_bishop_moves(Place place, BitBoard blockers) {
-  int diag1 = diag1_number[place],
-      diag2 = diag2_number[place];
-  int diag1_code = blockers.get_diag1(diag1);
-  int diag2_code = blockers.get_diag2(diag2);
-
-  return bishop_diag1_moves[place][diag1_code] |
-         bishop_diag2_moves[place][diag2_code];
-}
-
-inline BitBoard get_rook_moves(Place place, BitBoard blockers) {
-  int lin = place.line(), col = place.col();
-  int lin_code = blockers.get_line(lin);
-  int col_code = blockers.get_col(col);
-
-  return (rook_lin_moves[col][lin_code] << (lin * 8)) |
-         (rook_col_moves[lin][col_code] << col);
-}
-
-inline BitBoard get_queen_moves(Place place, BitBoard blockers) {
-  return get_rook_moves(place, blockers) | get_bishop_moves(place, blockers);
-}
-
-inline BitBoard get_king_moves(Place place) { return king_moves[place]; }
-
-inline bool is_valid_place(int lin, int col) {
-  return lin >= 0 and lin < 8 and col >= 0 and col < 8;
-}
-
-inline BitBoard get_passed_pawn_mask(int color, Place place) {
-  return pawn_passed_mask[color][place];
-}
-
-inline BitBoard get_neighbor_col_mask(Place place) {
-  return neighbor_col[place];
-}
-
-inline BitBoard get_col_mask(Place place) {
-  return BitBoard(col_mask << place.col(), col_mask << place.col());
-}
-
-inline void print_bitboard(FILE *f, BitBoard b) {
-  char tmp[8][16];
-  for (int l = 0; l < 8; ++l) {
-    for (int c = 0; c < 8; ++c) {
-      tmp[l][c] = '0' + b.is_set(Place::of_line_of_col(l, c));
-    }
-    tmp[l][8] = 0;
-  }
-  for (int l = 7; l >= 0; --l) {
-    fprintf(f, "%s\n", tmp[l]);
-  }
-  fprintf(f, "\n");
-}

@@ -3,23 +3,27 @@
 uint8_t pop_count_table[1 << 16];
 uint8_t ctz_table[1 << 16];
 
-BoardArray<BitBoard> pawn_moves[2];
-BoardArray<BitBoard> pawn_moves2[2];
-BoardArray<BitBoard> pawn_captures[2];
-BoardArray<BitBoard> pawn_promotion[2];
-BoardArray<BitBoard> pawn_passed_mask[2];
+BoardArray<BitBoard> BitBoard::pawn_moves[2];
+BoardArray<BitBoard> BitBoard::pawn_moves2[2];
+BoardArray<BitBoard> BitBoard::pawn_captures[2];
+BoardArray<BitBoard> BitBoard::pawn_promotion[2];
+BoardArray<BitBoard> BitBoard::pawn_passed_mask[2];
 
-BoardArray<BitBoard> neighbor_col;
+BoardArray<BitBoard> BitBoard::neighbor_col;
 
-BitBoard rook_lin_moves[8][256];
-BitBoard rook_col_moves[8][256];
+BitBoard BitBoard::rook_lin_moves[8][256];
+BitBoard BitBoard::rook_col_moves[8][256];
 
-BoardArray<BitBoard[256]> bishop_diag1_moves;
-BoardArray<BitBoard[256]> bishop_diag2_moves;
+BoardArray<BitBoard[256]> BitBoard::bishop_diag1_moves;
+BoardArray<BitBoard[256]> BitBoard::bishop_diag2_moves;
 
-BoardArray<BitBoard> knight_moves;
+BoardArray<BitBoard> BitBoard::knight_moves;
 
-BoardArray<BitBoard> king_moves;
+BoardArray<BitBoard> BitBoard::king_moves;
+
+inline bool is_valid_place(int lin, int col) {
+  return lin >= 0 and lin < 8 and col >= 0 and col < 8;
+}
 
 void init_bitboard() {
   using namespace std;
@@ -38,11 +42,11 @@ void init_bitboard() {
   for (int o = 0; o < 2; ++o) {
     for (int p = 0; p < 64; ++p) {
       Place place = Place::of_int(p);
-      pawn_moves[o][place].clear();
-      pawn_moves2[o][place].clear();
-      pawn_captures[o][place].clear();
-      pawn_promotion[o][place].clear();
-      pawn_passed_mask[o][place].clear();
+      BitBoard::pawn_moves[o][place].clear();
+      BitBoard::pawn_moves2[o][place].clear();
+      BitBoard::pawn_captures[o][place].clear();
+      BitBoard::pawn_promotion[o][place].clear();
+      BitBoard::pawn_passed_mask[o][place].clear();
     }
   }
 
@@ -51,40 +55,42 @@ void init_bitboard() {
     int col = place.col();
     int lin = place.line();
     /* movimento para frente */
-    pawn_moves[BLACK][place].set(place.down());
-    pawn_moves[WHITE][place].set(place.up());
+    BitBoard::pawn_moves[BLACK][place].set(place.down());
+    BitBoard::pawn_moves[WHITE][place].set(place.up());
 
     if (col > 0) {
       /* captura para esquerda */
-      pawn_captures[BLACK][place].set(place.down().left());
-      pawn_captures[WHITE][place].set(place.up().left());
+      BitBoard::pawn_captures[BLACK][place].set(place.down().left());
+      BitBoard::pawn_captures[WHITE][place].set(place.up().left());
     }
 
     if (col < 7) {
       /* captura para a direita */
-      pawn_captures[BLACK][place].set(place.down().right());
-      pawn_captures[WHITE][place].set(place.up().right());
+      BitBoard::pawn_captures[BLACK][place].set(place.down().right());
+      BitBoard::pawn_captures[WHITE][place].set(place.up().right());
     }
 
     if (lin == 1) {
       // black promotion
-      pawn_promotion[BLACK][place].set(place.down());
+      BitBoard::pawn_promotion[BLACK][place].set(place.down());
       // white double move
-      pawn_moves2[WHITE][place].set(place.up().up());
+      BitBoard::pawn_moves2[WHITE][place].set(place.up().up());
     }
 
     if (lin == 6) {
-      pawn_promotion[WHITE][place].set(place.up());
-      pawn_moves2[BLACK][place].set(place.down().down());
+      BitBoard::pawn_promotion[WHITE][place].set(place.up());
+      BitBoard::pawn_moves2[BLACK][place].set(place.down().down());
     }
 
     /* set passed mask */
     for (int c1 = max(0, col - 1); c1 <= min(7, col + 1); ++c1) {
       for (int l1 = lin + 1; l1 < 8; ++l1) {
-        pawn_passed_mask[WHITE][place].set(Place::of_line_of_col(l1, c1));
+        BitBoard::pawn_passed_mask[WHITE][place].set(
+            Place::of_line_of_col(l1, c1));
       }
       for (int l1 = lin - 1; l1 >= 0; --l1) {
-        pawn_passed_mask[BLACK][place].set(Place::of_line_of_col(l1, c1));
+        BitBoard::pawn_passed_mask[BLACK][place].set(
+            Place::of_line_of_col(l1, c1));
       }
     }
   }
@@ -95,11 +101,11 @@ void init_bitboard() {
   for (int lin = 0; lin < 8; ++lin) {
     for (int col = 0; col < 8; ++col) {
       Place p = Place::of_line_of_col(lin, col);
-      knight_moves[p].clear();
+      BitBoard::knight_moves[p].clear();
       for (int i = 0; i < 8; ++i) {
         int lin1 = lin + ndl[i], col1 = col + ndc[i];
         if (is_valid_place(lin1, col1)) {
-          knight_moves[p].set(Place::of_line_of_col(lin1, col1));
+          BitBoard::knight_moves[p].set(Place::of_line_of_col(lin1, col1));
         }
       }
     }
@@ -111,11 +117,11 @@ void init_bitboard() {
   for (int lin = 0; lin < 8; ++lin) {
     for (int col = 0; col < 8; ++col) {
       Place p = Place::of_line_of_col(lin, col);
-      king_moves[p].clear();
+      BitBoard::king_moves[p].clear();
       for (int i = 0; i < 8; ++i) {
         int lin1 = lin + kdl[i], col1 = col + kdc[i];
         if (is_valid_place(lin1, col1)) {
-          king_moves[p].set(Place::of_line_of_col(lin1, col1));
+          BitBoard::king_moves[p].set(Place::of_line_of_col(lin1, col1));
         }
       }
     }
@@ -142,8 +148,8 @@ void init_bitboard() {
           bb2.set(Place::of_line_of_col(c, 0));
         }
       }
-      rook_lin_moves[i][m] = bb1;
-      rook_col_moves[i][m] = bb2;
+      BitBoard::rook_lin_moves[i][m] = bb1;
+      BitBoard::rook_col_moves[i][m] = bb2;
     }
   }
 
@@ -174,7 +180,7 @@ void init_bitboard() {
             bb.set(Place::of_line_of_col(l, c));
           }
         }
-        bishop_diag1_moves[p][m] = bb;
+        BitBoard::bishop_diag1_moves[p][m] = bb;
 
         bb = 0;
         for (int i = 0; i < 2; ++i) {
@@ -187,7 +193,7 @@ void init_bitboard() {
             bb.set(Place::of_line_of_col(l, c));
           }
         }
-        bishop_diag2_moves[p][m] = bb;
+        BitBoard::bishop_diag2_moves[p][m] = bb;
       }
     }
   }
@@ -203,7 +209,7 @@ void init_bitboard() {
         if (col < 7)
           bb.set(Place::of_line_of_col(l, col + 1));
       }
-      neighbor_col[p] = bb;
+      BitBoard::neighbor_col[p] = bb;
     }
   }
 }
