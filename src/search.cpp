@@ -1,5 +1,6 @@
 #include "search.h"
 #include "board.h"
+#include "board_array.h"
 #include "hash.h"
 
 /* configurable params */
@@ -12,15 +13,14 @@ const int cap_table[7] = {0, 1, 2, 3, 4, 5, 6};
 
 // const int mob_pref_table[7] = {0, 1, 5, 4, 3, 2, 0};
 
-int move_history[1024][64][64];
+BoardArray<BoardArray<int> > move_history[1024];
 
 struct MoveScore {
   Move m;
   int score;
   void setScore(const Board &board) {
     int c = cap_table[board.b[m.d].type];
-    score =
-        move_history[board.move_count][m.o.to_int()][m.d.to_int()] + c * 512;
+    score = move_history[board.move_count][m.o][m.d] + c * 512;
   }
   inline bool operator<(const MoveScore &ms) const { return score > ms.score; }
 };
@@ -185,11 +185,11 @@ int search(Board &board, int depth, int alfa = -INFINITE_SCORE,
 
   if (best_move != Move(0, 0, 0, 0)) {
     ASSERT(board.move_count < 1024);
-    if ((++move_history[board.move_count][best_move.o.to_int()]
-                       [best_move.d.to_int()]) >= 512) {
+    if ((++move_history[board.move_count][best_move.o][best_move.d]) >= 512) {
       for (int i = 0; i < 64; ++i)
         for (int j = 0; j < 64; ++j) {
-          move_history[board.move_count][i][j] /= 2;
+          move_history[board.move_count][Place::of_int(i)][Place::of_int(j)] /=
+              2;
         }
     }
   }
