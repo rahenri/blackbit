@@ -1,6 +1,7 @@
 #pragma once
 
 #include "bitboard.h"
+#include "board_array.h"
 #include "debug.h"
 #include "move.h"
 #include "pieces.h"
@@ -29,7 +30,7 @@ struct Peca {
 };
 
 struct Pos {
-  Pos() {}
+  Pos() : id(0), type(CLEAR), owner(NONE), __fill__(0) {}
 
   int8_t id;
   int8_t type;
@@ -48,11 +49,11 @@ struct MoveInfo {
   Pos p;
 };
 
-extern uint64_t hash_code[64][8][2];
+extern BoardArray<uint64_t[8][2]> hash_code;
 extern uint64_t hash_code_turn;
 
 struct Board {
-  Pos b[64];
+  BoardArray<Pos> b;
   Place peca_table[2][8][16];
   int size_table[2][8];
   BitBoard bb_blockers[2];
@@ -70,16 +71,12 @@ struct Board {
   Board() { clear(); }
 
   void clear() {
-    memset(b, 0, sizeof(b));
+    b.clear(Pos());
     passan_place = Place::invalid();
     memset(size_table, 0, sizeof(size_table));
     turn = WHITE;
     score = 0;
     hash_key = 0;
-    for (int p = 0; p < 64; ++p) {
-      b[p].owner = NONE;
-      b[p].type = CLEAR;
-    }
     for (int i = 0; i < 2; ++i) {
       for (int j = 0; j < 8; ++j) {
         bbPeca[i][j] = 0;
@@ -143,30 +140,30 @@ struct Board {
   }
 
   void erasePeca2(Place place) {
-    Pos p = b[place.to_int()];
+    Pos p = b[place];
     int tmp = size_table[p.owner][p.type]--;
     if (p.id != tmp - 1) {
       peca_table[p.owner][p.type][p.id] = peca_table[p.owner][p.type][tmp - 1];
-      b[peca_table[p.owner][p.type][p.id].to_int()].id = p.id;
+      b[peca_table[p.owner][p.type][p.id]].id = p.id;
     }
   }
 
   void erasePeca(Place place) {
-    int owner = b[place.to_int()].owner;
-    int type = b[place.to_int()].type;
+    int owner = b[place].owner;
+    int type = b[place].type;
 
     /* update material count */
     score -= material_table[owner][type];
 
     /* update hahs code */
-    hash_key ^= hash_code[place.to_int()][type][owner];
+    hash_key ^= hash_code[place][type][owner];
 
     /* erase from piece list */
     erasePeca2(place);
 
     /* erase from matrix */
-    b[place.to_int()].type = CLEAR;
-    b[place.to_int()].owner = NONE;
+    b[place].type = CLEAR;
+    b[place].owner = NONE;
 
     /* erase from bit board */
     bb_blockers[owner].invert(place);
@@ -176,7 +173,7 @@ struct Board {
   void insertPeca2(Place place, int type, int owner) {
     int tmp = size_table[owner][type]++;
     peca_table[owner][type][tmp] = place;
-    b[place.to_int()].id = tmp;
+    b[place].id = tmp;
   }
 
   void insertPeca(Place place, int type, int owner) {
@@ -184,14 +181,14 @@ struct Board {
     score += material_table[owner][type];
 
     /* update hash code */
-    hash_key ^= hash_code[place.to_int()][type][owner];
+    hash_key ^= hash_code[place][type][owner];
 
     /* insrt to piece list */
     insertPeca2(place, type, owner);
 
     /* insrt to matrix */
-    b[place.to_int()].type = type;
-    b[place.to_int()].owner = owner;
+    b[place].type = type;
+    b[place].owner = owner;
 
     /* insert to bitboard */
     bb_blockers[owner].invert(place);
@@ -200,21 +197,21 @@ struct Board {
 
   void movePeca(const Move &m) {
     Pos s;
-    int owner = b[m.o.to_int()].owner;
-    int type = b[m.o.to_int()].type;
-    int id = b[m.o.to_int()].id;
+    int owner = b[m.o].owner;
+    int type = b[m.o].type;
+    int id = b[m.o].id;
 
     /* update hash code */
-    hash_key ^= hash_code[m.o.to_int()][type][owner];
-    hash_key ^= hash_code[m.d.to_int()][type][owner];
+    hash_key ^= hash_code[m.o][type][owner];
+    hash_key ^= hash_code[m.d][type][owner];
 
     /* update piece list */
     peca_table[owner][type][id] = m.d;
 
     /* update matrix */
-    b[m.d.to_int()] = b[m.o.to_int()];
-    b[m.o.to_int()].type = CLEAR;
-    b[m.o.to_int()].owner = NONE;
+    b[m.d] = b[m.o];
+    b[m.o].type = CLEAR;
+    b[m.o].owner = NONE;
 
     /* update bitboard */
     bb_blockers[owner].invert(m.o);
@@ -225,24 +222,23 @@ struct Board {
 
   void setType(Place place, int type) {
     /* update material */
-    score += material_table[b[place.to_int()].owner][type] -
-             material_table[b[place.to_int()].owner][b[place.to_int()].type];
+    score += material_table[b[place].owner][type] -
+             material_table[b[place].owner][b[place].type];
 
     /* update hash code */
-    hash_key ^= hash_code[place.to_int()][type][b[place.to_int()].owner];
-    hash_key ^= hash_code[place.to_int()][b[place.to_int()].type]
-                         [b[place.to_int()].owner];
+    hash_key ^= hash_code[place][type][b[place].owner];
+    hash_key ^= hash_code[place][b[place].type][b[place].owner];
 
     /* update list */
     erasePeca2(place);
-    insertPeca2(place, type, b[place.to_int()].owner);
+    insertPeca2(place, type, b[place].owner);
 
     /* update the bitboard */
-    bbPeca[b[place.to_int()].owner][b[place.to_int()].type].invert(place);
-    bbPeca[b[place.to_int()].owner][type].invert(place);
+    bbPeca[b[place].owner][b[place].type].invert(place);
+    bbPeca[b[place].owner][type].invert(place);
 
     /* update matrix */
-    b[place.to_int()].type = type;
+    b[place].type = type;
   }
 
   MoveInfo move(Move m) {
@@ -254,11 +250,11 @@ struct Board {
     history[move_count++] = hash_key;
 
     /* get the type of the piece to be moved */
-    int type = b[m.o.to_int()].type;
+    int type = b[m.o].type;
 
     /* copia peca capturada */
-    if (b[m.d.to_int()].type != CLEAR) {
-      mi.p = b[m.d.to_int()];
+    if (b[m.d].type != CLEAR) {
+      mi.p = b[m.d];
       mi.capturou = true;
       erasePeca(m.d);
     } else {
@@ -268,7 +264,7 @@ struct Board {
     /* movimenta a peca */
     movePeca(m);
 
-    /* promove */
+    /* promote */
     if (type == PAWN && (m.d.to_int() >= (64 - 8) or m.d.to_int() < 8)) {
       setType(m.d, QUEEN);
       mi.promoveu = true;
@@ -290,7 +286,7 @@ struct Board {
     /* faz en passan */
     if (type == PAWN && (not mi.capturou) && m.dc() != m.oc()) {
       Place p = Place::of_line_of_col(m.ol(), m.dc());
-      mi.p = b[p.to_int()];
+      mi.p = b[p];
       mi.fez_passan = true;
       erasePeca(p);
     } else {
@@ -394,38 +390,36 @@ struct Board {
     BitBoard blockers = this->getBlockers();
     if (this->passan_place.is_valid())
       blockers.set(this->passan_place);
-    BitBoard dest = get_pawn_moves(b[m.o.to_int()].owner, m.o, blockers) &
-                    ~(this->bb_blockers[b[m.o.to_int()].owner]);
+    BitBoard dest = get_pawn_moves(b[m.o].owner, m.o, blockers) &
+                    ~(this->bb_blockers[b[m.o].owner]);
     return dest.is_set(m.d);
   }
 
   bool validateKnight(const Move &m) {
-    BitBoard dest =
-        get_knight_moves(m.o) & ~(this->bb_blockers[b[m.o.to_int()].owner]);
+    BitBoard dest = get_knight_moves(m.o) & ~(this->bb_blockers[b[m.o].owner]);
     return dest.is_set(m.d);
   }
 
   bool validateBishop(const Move &m) {
     BitBoard dest = get_bishop_moves(m.o, this->getBlockers()) &
-                    ~(this->bb_blockers[b[m.o.to_int()].owner]);
+                    ~(this->bb_blockers[b[m.o].owner]);
     return dest.is_set(m.d);
   }
 
   bool validateKing(const Move &m) {
-    BitBoard dest =
-        get_king_moves(m.o) & ~(this->bb_blockers[b[m.o.to_int()].owner]);
+    BitBoard dest = get_king_moves(m.o) & ~(this->bb_blockers[b[m.o].owner]);
     return dest.is_set(m.d);
   }
 
   bool validateRook(Move m) {
     BitBoard dest = get_rook_moves(m.o, this->getBlockers()) &
-                    ~(this->bb_blockers[b[m.o.to_int()].owner]);
+                    ~(this->bb_blockers[b[m.o].owner]);
     return dest.is_set(m.d);
   }
 
   bool validateQueen(const Move &m) {
     BitBoard dest = get_queen_moves(m.o, this->getBlockers()) &
-                    ~(this->bb_blockers[b[m.o.to_int()].owner]);
+                    ~(this->bb_blockers[b[m.o].owner]);
     return dest.is_set(m.d);
   }
 
@@ -433,7 +427,7 @@ struct Board {
     bool valid = true;
     int player = this->turn;
     /* verifica a vez */
-    if (b[m.o.to_int()].owner != player) {
+    if (b[m.o].owner != player) {
       return false;
     }
     /* verifica jogada sem sentido */
@@ -442,7 +436,7 @@ struct Board {
     }
 
     /* valida o movimento da peça */
-    switch (b[m.o.to_int()].type) {
+    switch (b[m.o].type) {
     case PAWN:
       valid = validatePawn(m);
       break;
@@ -485,8 +479,8 @@ struct Board {
     std::string fen;
     for (int l = 7; l >= 0; --l) {
       for (int c = 0; c < 8; ++c) {
-        fen += tabela[b[Place::of_line_of_col(l, c).to_int()].owner]
-                     [b[Place::of_line_of_col(l, c).to_int()].type];
+        Place place = Place::of_line_of_col(l, c);
+        fen += tabela[b[place].owner][b[place].type];
       }
       fen += '/';
     }
@@ -514,12 +508,13 @@ struct Board {
     linha.clear();
     for (int l = 7;; l--) {
       for (int c = 0; c < 8; c++) {
+        Place place = Place::of_line_of_col(l, c);
         linha += '|';
-        if (b[Place::of_line_of_col(l, c).to_int()].type == CLEAR) {
+        if (b[place].type == CLEAR) {
           linha += "  ";
         } else {
-          linha += tabela[(int)b[Place::of_line_of_col(l, c).to_int()].type];
-          linha += tabela2[b[Place::of_line_of_col(l, c).to_int()].owner];
+          linha += tabela[(int)b[place].type];
+          linha += tabela2[b[place].owner];
         }
       }
       linha += '|';
@@ -550,8 +545,7 @@ struct Board {
     for (int l = 0; l < 8; ++l) {
       for (int c = 0; c < 8; ++c) {
         Place place = Place::of_line_of_col(l, c);
-        int type = b[place.to_int()].type, owner = b[place.to_int()].owner,
-            id = b[place.to_int()].id;
+        int type = b[place].type, owner = b[place].owner, id = b[place].id;
         if ((this->bb_blockers[0].is_set(place) && (owner != BLACK)) or
             (not this->bb_blockers[0].is_set(place) && (owner == BLACK))) {
           fprintf(log_file, "blockers bitboard ta errado em (%d,%d) %d\n", l, c,
@@ -585,9 +579,9 @@ struct Board {
     for (int owner = 0; owner < 2; ++owner) {
       for (int type = 1; type < 7; ++type) {
         for (int i = 0; i < size_table[owner][type]; ++i) {
-          if (b[peca_table[owner][type][i].to_int()].owner != owner or
-              b[peca_table[owner][type][i].to_int()].type != type or
-              b[peca_table[owner][type][i].to_int()].id != i) {
+          if (b[peca_table[owner][type][i]].owner != owner or
+              b[peca_table[owner][type][i]].type != type or
+              b[peca_table[owner][type][i]].id != i) {
             int l = peca_table[owner][type][i].line();
             int c = peca_table[owner][type][i].col();
             Place place = peca_table[owner][type][i];
@@ -595,8 +589,8 @@ struct Board {
             fprintf(log_file,
                     "peca_table[%d][%d][%d] = (l=%d,c=%d) "
                     "b(type=%d,owner=%d,id=%d)\n",
-                    owner, type, i, l, c, b[place.to_int()].type,
-                    b[place.to_int()].owner, b[place.to_int()].id);
+                    owner, type, i, l, c, b[place].type, b[place].owner,
+                    b[place].id);
             print(log_file);
             print_bitboard(log_file, this->getBlockers());
             goto erro;
@@ -662,16 +656,16 @@ struct Board {
     int dir = (owner == WHITE) ? 1 : -1;
     if (m.d.to_int() - m.o.to_int() == 8 * dir) {
       /* uma casa para frente */
-      return b[m.d.to_int()].owner == NONE;
+      return b[m.d].owner == NONE;
     } else if (m.d.to_int() - m.o.to_int() == 16 * dir) {
       /* duas casas para frente */
-      return b[m.d.to_int()].owner == NONE &&
-             b[(m.d.to_int() + m.o.to_int()) / 2].owner == NONE;
+      return b[m.d].owner == NONE &&
+             b[Place::of_int((m.d.to_int() + m.o.to_int()) / 2)].owner == NONE;
     } else if ((m.oc() > 0 && m.ol() + dir == m.dl() && m.oc() - 1 == m.dc()) or
                ((m.oc() < 7 && m.ol() + dir == m.dl() &&
                  m.oc() + 1 == m.dc()))) {
       /* captura ou en passan */
-      return b[m.d.to_int()].owner == OPPONENT(owner) or m.d == passan_place;
+      return b[m.d].owner == OPPONENT(owner) or m.d == passan_place;
     } else {
       return false;
     }
@@ -943,8 +937,9 @@ struct Board {
   bool check_hash_key(int linha) {
     uint64_t hashk = 0;
     for (int p = 0; p < 64; ++p) {
-      if (b[p].owner != NONE) {
-        hashk ^= hash_code[p][b[p].type][b[p].owner];
+      Place place = Place::of_int(p);
+      if (b[place].owner != NONE) {
+        hashk ^= hash_code[place][b[place].type][b[place].owner];
       }
     }
     if (hashk != hash_key) {

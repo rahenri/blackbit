@@ -18,7 +18,7 @@ struct MoveScore {
   Move m;
   int score;
   void setScore(const Board &board) {
-    int c = cap_table[board.b[m.d.to_int()].type];
+    int c = cap_table[board.b[m.d].type];
     score =
         move_history[board.move_count][m.o.to_int()][m.d.to_int()] + c * 512;
   }
@@ -122,7 +122,7 @@ int search(Board &board, int depth, int alfa = -INFINITE_SCORE,
     }
 
     /* mate */
-    if (board.b[list[i].d.to_int()].type == KING) {
+    if (board.b[list[i].d].type == KING) {
       best_score = (mate_score + depth);
       best_move = list[i];
       break;
