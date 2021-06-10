@@ -1,6 +1,6 @@
 CXX=g++
 
-CXXFLAGS=-O3 -fomit-frame-pointer -mfpmath=sse
+CXXFLAGS=-O3 -fomit-frame-pointer -mfpmath=sse -std=c++17
 #CXXFLAGS=-ggdb3
 #CXXFLAGS=-ggdb3 -O3 -pg -D_NOINLINE
 #CXXFLAGS=-ggdb3 -O3 -D_NOINLINE

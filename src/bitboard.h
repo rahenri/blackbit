@@ -1,6 +1,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <cstdio>
 #include <stdint.h>
 
@@ -36,16 +37,17 @@ const static uint32_t diag2_mask[][2] = {
     {0x00000000u, 0x04020100u}, {0x00000000u, 0x02010000u},
     {0x00000000u, 0x01000000u}};
 
-static const uint32_t diag1_number[] = {
-    0, 1,  2,  3,  4, 5, 6, 7, 1,  2,  3,  4,  5, 6, 7, 8,  2,  3,  4,  5, 6, 7,
-    8, 9,  3,  4,  5, 6, 7, 8, 9,  10, 4,  5,  6, 7, 8, 9,  10, 11, 5,  6, 7, 8,
-    9, 10, 11, 12, 6, 7, 8, 9, 10, 11, 12, 13, 7, 8, 9, 10, 11, 12, 13, 14};
+static const BoardArray<uint32_t> diag1_number{
+    {0, 1, 2, 3, 4,  5,  6,  7,  1, 2, 3, 4,  5,  6,  7,  8,
+     2, 3, 4, 5, 6,  7,  8,  9,  3, 4, 5, 6,  7,  8,  9,  10,
+     4, 5, 6, 7, 8,  9,  10, 11, 5, 6, 7, 8,  9,  10, 11, 12,
+     6, 7, 8, 9, 10, 11, 12, 13, 7, 8, 9, 10, 11, 12, 13, 14}};
 
-static const uint32_t diag2_number[] = {
-    7,  6,  5,  4,  3, 2, 1, 0, 8,  7,  6,  5,  4,  3, 2, 1,
-    9,  8,  7,  6,  5, 4, 3, 2, 10, 9,  8,  7,  6,  5, 4, 3,
-    11, 10, 9,  8,  7, 6, 5, 4, 12, 11, 10, 9,  8,  7, 6, 5,
-    13, 12, 11, 10, 9, 8, 7, 6, 14, 13, 12, 11, 10, 9, 8, 7};
+static const BoardArray<uint32_t> diag2_number{
+    {7,  6,  5,  4,  3, 2, 1, 0, 8,  7,  6,  5,  4,  3, 2, 1,
+     9,  8,  7,  6,  5, 4, 3, 2, 10, 9,  8,  7,  6,  5, 4, 3,
+     11, 10, 9,  8,  7, 6, 5, 4, 12, 11, 10, 9,  8,  7, 6, 5,
+     13, 12, 11, 10, 9, 8, 7, 6, 14, 13, 12, 11, 10, 9, 8, 7}};
 
 const static uint32_t diag_rotate_code = 0x01010101;
 
@@ -313,8 +315,8 @@ inline BitBoard get_pawn_moves(int color, Place place, BitBoard blockers) {
 inline BitBoard get_knight_moves(Place place) { return knight_moves[place]; }
 
 inline BitBoard get_bishop_moves(Place place, BitBoard blockers) {
-  int diag1 = diag1_number[place.to_int()],
-      diag2 = diag2_number[place.to_int()];
+  int diag1 = diag1_number[place],
+      diag2 = diag2_number[place];
   int diag1_code = blockers.get_diag1(diag1);
   int diag2_code = blockers.get_diag2(diag2);
 
@@ -335,9 +337,7 @@ inline BitBoard get_queen_moves(Place place, BitBoard blockers) {
   return get_rook_moves(place, blockers) | get_bishop_moves(place, blockers);
 }
 
-inline BitBoard get_king_moves(Place place) {
-  return king_moves[place];
-}
+inline BitBoard get_king_moves(Place place) { return king_moves[place]; }
 
 inline bool is_valid_place(int lin, int col) {
   return lin >= 0 and lin < 8 and col >= 0 and col < 8;

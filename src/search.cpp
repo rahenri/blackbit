@@ -13,7 +13,7 @@ const int cap_table[7] = {0, 1, 2, 3, 4, 5, 6};
 
 // const int mob_pref_table[7] = {0, 1, 5, 4, 3, 2, 0};
 
-BoardArray<BoardArray<int> > move_history[1024];
+BoardArray<BoardArray<int>> move_history[1024];
 
 struct MoveScore {
   Move m;
