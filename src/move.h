@@ -22,14 +22,15 @@ struct Move {
     return VALID_POS(o) and VALID_POS(d) and (o != d);
   }
   int16_t o, d;
-
-  inline void print(FILE *file) const {
-    fprintf(file, "%c%c%c%c", oc() + 'a', ol() + '1', dc() + 'a', dl() + '1');
-  }
 };
 
 inline std::ostream &operator<<(std::ostream &stream, const Move &m) {
   return stream << m.oc() + 'a' << m.ol() + '1' << m.dc() + 'a' << m.dl() + '1';
+}
+
+inline void print_move(FILE *file, const Move &m) {
+  fprintf(file, "%c%c%c%c", m.oc() + 'a', m.ol() + '1', m.dc() + 'a',
+          m.dl() + '1');
 }
 
 #endif

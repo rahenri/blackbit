@@ -1,27 +1,27 @@
 #include "bitboard.h"
 
-uint8_t BitBoard::pop_count_table[1 << 16];
-uint8_t BitBoard::ctz_table[1 << 16];
+uint8_t pop_count_table[1 << 16];
+uint8_t ctz_table[1 << 16];
 
-BitBoard BitBoard::pawn_moves[2][64];
-BitBoard BitBoard::pawn_moves2[2][64];
-BitBoard BitBoard::pawn_captures[2][64];
-BitBoard BitBoard::pawn_promotion[2][64];
-BitBoard BitBoard::pawn_passed_mask[2][64];
+BitBoard pawn_moves[2][64];
+BitBoard pawn_moves2[2][64];
+BitBoard pawn_captures[2][64];
+BitBoard pawn_promotion[2][64];
+BitBoard pawn_passed_mask[2][64];
 
-BitBoard BitBoard::neighbor_col[64];
+BitBoard neighbor_col[64];
 
-BitBoard BitBoard::rook_lin_moves[8][256];
-BitBoard BitBoard::rook_col_moves[8][256];
+BitBoard rook_lin_moves[8][256];
+BitBoard rook_col_moves[8][256];
 
-BitBoard BitBoard::bishop_diag1_moves[64][256];
-BitBoard BitBoard::bishop_diag2_moves[64][256];
+BitBoard bishop_diag1_moves[64][256];
+BitBoard bishop_diag2_moves[64][256];
 
-BitBoard BitBoard::knight_moves[64];
+BitBoard knight_moves[64];
 
-BitBoard BitBoard::king_moves[64];
+BitBoard king_moves[64];
 
-void BitBoard::init_bitboard() {
+void init_bitboard() {
   using namespace std;
   /* init_popcount table */
   pop_count_table[0] = 0;
@@ -46,8 +46,8 @@ void BitBoard::init_bitboard() {
   }
 
   for (int p = 8; p < 64 - 8; ++p) {
-    int col = col_of_place(p);
-    int lin = line_of_place(p);
+    int col = get_col(p);
+    int lin = get_lin(p);
     /* movimento para frente */
     pawn_moves[BLACK][p].set(p - 8);
     pawn_moves[WHITE][p].set(p + 8);
@@ -206,6 +206,6 @@ void BitBoard::init_bitboard() {
 
 namespace {
 struct __init_bitboard_t__ {
-  __init_bitboard_t__() { BitBoard::init_bitboard(); }
+  __init_bitboard_t__() { init_bitboard(); }
 } __init_bitboard__;
 } // namespace

@@ -195,7 +195,7 @@ int search(Board &board, int depth, int alfa = -INFINITE_SCORE,
   return best_score;
 }
 
-Move Search::ComputerPlay(Board &board, int depth, bool post) {
+Move ComputerPlay(Board& board, int depth, bool post) {
   // TODO: make a copy of board
   Move best;
   hash_slot *slot;
@@ -215,8 +215,7 @@ Move Search::ComputerPlay(Board &board, int depth, bool post) {
   best = slot->move;
 
   fprintf(log_file, "\n%+d ", slot->lower_bound);
-
-  slot->move.print(log_file);
+  print_move(log_file, slot->move);
   fprintf(log_file, "\n");
 
   if (post) {
@@ -225,7 +224,7 @@ Move Search::ComputerPlay(Board &board, int depth, bool post) {
       search(board, d, score - 1, score);
       slot = hash_find(board);
       printf(" ");
-      slot->move.print(stdout);
+      print_move(stdout, slot->move);
       mis[d] = board.move(slot->move);
       hist[d] = slot->move;
       score = -score;

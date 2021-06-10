@@ -155,7 +155,7 @@ int main(int argc, char **argv) {
         m = parse_move_string(board, comando);
       if (not board.validateMove(m)) {
         printf("Illegal move: ");
-        m.print(stdout);
+        print_move(stdout, m);
         printf("\n");
       } else {
         board.move(m);
@@ -167,7 +167,7 @@ int main(int argc, char **argv) {
     fflush(stdout);
     /* joga se for o caso */
     if (play == board.turn and go) {
-      Move m = Search::ComputerPlay(board, depth, post);
+      Move m = ComputerPlay(board, depth, post);
       printf("move %c%c%c%c\n", m.oc() + 'a', m.ol() + '1', m.dc() + 'a',
              m.dl() + '1');
       board.move(m);

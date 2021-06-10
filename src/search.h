@@ -1,8 +1,6 @@
 #pragma once
 
-#include "board.h"
 #include "move.h"
+#include "board.h"
 
-struct Search {
-  static Move ComputerPlay(Board &board, int depth, bool post);
-};
+Move ComputerPlay(Board &board, int depth, bool post);

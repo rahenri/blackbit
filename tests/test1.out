@@ -1,8 +1,8 @@
 feature myname="raphael-chess8" ping=1 usermove=1 draw=0 variants="normal" sigint=0 sigterm=0 setboard=1 playother=1 analyze=0 colors=0 done=1
-8 -124 0 3214358 e7e5 d1h5 b8c6 f1c4 d8e7 b1c3 c6d4 e1d1
-move e7e5
-8 -118 0 5827112 d8h4 d4e5 h4e4 d1e2 d7d5 e2e4 d5e4 b1c3
+8 -6 0 3253215 e7e6 a2a3 b8c6 b1c3 g8f6 d2d4 f8d6 e4e5
+move e7e6
+8 -10 0 11571029 d8h4 f1d3 b8c6 g2g3 h4f6 e4e5 f8b4 c1d2
 move d8h4
-8 -15 0 5946251 h4e4 g1e2 b8c6 b1c3 f8b4 c1d2 b4c3 d2c3
+8 97 0 7692387 h4e4 c1e3 f8b4 b1d2 b8c6 g1f3 b4d2 d1d2
 move h4e4
 Illegal move: g1f3
