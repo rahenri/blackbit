@@ -258,6 +258,15 @@ private:
   };
 };
 
+/* not BB */
+inline int line_of_place(int place) { return place >> 3; }
+
+/* not BB */
+inline int col_of_place(int place) { return place & 7; }
+
+/* not BB */
+inline int make_place(int lin, int col) { return col | (lin << 3); }
+
 extern BitBoard pawn_moves[2][64];
 extern BitBoard pawn_moves2[2][64];
 extern BitBoard pawn_captures[2][64];
@@ -275,15 +284,6 @@ extern BitBoard bishop_diag2_moves[64][256];
 extern BitBoard knight_moves[64];
 
 extern BitBoard king_moves[64];
-
-/* not BB */
-inline int line_of_place(int place) { return place >> 3; }
-
-/* not BB */
-inline int col_of_place(int place) { return place & 7; }
-
-/* not BB */
-inline int make_place(int lin, int col) { return col | (lin << 3); }
 
 inline BitBoard get_pawn_noncapture_moves(int color, int place,
                                           BitBoard blockers) {
@@ -347,7 +347,8 @@ inline BitBoard get_passed_pawn_mask(int color, int place) {
 inline BitBoard get_neighbor_col_mask(int place) { return neighbor_col[place]; }
 
 inline BitBoard get_col_mask(int place) {
-  return BitBoard(col_mask << col_of_place(place), col_mask << col_of_place(place));
+  return BitBoard(col_mask << col_of_place(place),
+                  col_mask << col_of_place(place));
 }
 
 inline void print_bitboard(FILE *f, BitBoard b) {
