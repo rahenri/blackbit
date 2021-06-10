@@ -8,9 +8,6 @@
 #include "debug.h"
 #include "pieces.h"
 
-extern uint8_t pop_count_table[1 << 16];
-extern uint8_t ctz_table[1 << 16];
-
 static const uint32_t col_mask = 0x01010101u;
 
 static const uint32_t col_rotate_code = 0x10204080u;
@@ -48,17 +45,39 @@ static const uint32_t diag2_number[] = {
 
 const static uint32_t diag_rotate_code = 0x01010101;
 
-inline int pop_count8(uint32_t n) { return pop_count_table[n]; }
-
-inline int pop_count16(uint32_t n) { return pop_count_table[n]; }
-
-inline int pop_count32(uint32_t n) {
-  return pop_count_table[n & 0xffff] + pop_count_table[n >> 16];
-}
-
 #define _min(a, b) ((a) < (b)) ? (a) : (b)
 
 class BitBoard {
+private:
+  static uint8_t pop_count_table[1 << 16];
+  static uint8_t ctz_table[1 << 16];
+
+  static BitBoard pawn_moves[2][64];
+  static BitBoard pawn_moves2[2][64];
+  static BitBoard pawn_captures[2][64];
+  static BitBoard pawn_promotion[2][64];
+  static BitBoard pawn_passed_mask[2][64];
+
+  static BitBoard neighbor_col[64];
+
+  static BitBoard rook_lin_moves[8][256];
+  static BitBoard rook_col_moves[8][256];
+
+  static BitBoard bishop_diag1_moves[64][256];
+  static BitBoard bishop_diag2_moves[64][256];
+
+  static BitBoard knight_moves[64];
+
+  static BitBoard king_moves[64];
+
+  static inline int pop_count8(uint32_t n) { return pop_count_table[n]; }
+
+  static inline int pop_count16(uint32_t n) { return pop_count_table[n]; }
+
+  static inline int pop_count32(uint32_t n) {
+    return pop_count_table[n & 0xffff] + pop_count_table[n >> 16];
+  }
+
 public:
   inline BitBoard() {}
 
@@ -248,6 +267,102 @@ public:
     return p;
   }
 
+  static inline BitBoard get_pawn_noncapture_moves(int color, int place,
+                                                   BitBoard blockers) {
+    BitBoard resp = pawn_moves[color][place] & (~blockers);
+    if (not resp.empty()) {
+      resp |= pawn_moves2[color][place] & (~blockers);
+    }
+    return resp;
+  }
+
+  static inline BitBoard get_pawn_capture_moves(int color, int place,
+                                                BitBoard blockers) {
+    return pawn_captures[color][place] & blockers;
+  }
+
+  static inline BitBoard get_pawn_capture_promotion_moves(int color, int place,
+                                                          BitBoard blockers) {
+    return (pawn_captures[color][place] & blockers) |
+           (pawn_promotion[color][place] & (~blockers));
+  }
+
+  static inline BitBoard get_pawn_moves(int color, int place,
+                                        BitBoard blockers) {
+    return get_pawn_noncapture_moves(color, place, blockers) |
+           get_pawn_capture_moves(color, place, blockers);
+  }
+
+  static inline BitBoard get_knight_moves(int place) {
+    return knight_moves[place];
+  }
+
+  static inline BitBoard get_bishop_moves(int place, BitBoard blockers) {
+    int diag1 = diag1_number[place], diag2 = diag2_number[place];
+    int diag1_code = blockers.get_diag1(diag1);
+    int diag2_code = blockers.get_diag2(diag2);
+
+    return bishop_diag1_moves[place][diag1_code] |
+           bishop_diag2_moves[place][diag2_code];
+  }
+
+  /* not BB */
+  static inline int line_of_place(int place) { return place >> 3; }
+
+  /* not BB */
+  static inline int col_of_place(int place) { return place & 7; }
+
+  /* not BB */
+  static inline int make_place(int lin, int col) { return col | (lin << 3); }
+
+  static inline BitBoard get_rook_moves(int place, BitBoard blockers) {
+    int lin = line_of_place(place), col = col_of_place(place);
+    int lin_code = blockers.get_line(lin);
+    int col_code = blockers.get_col(col);
+
+    return (rook_lin_moves[col][lin_code] << (lin * 8)) |
+           (rook_col_moves[lin][col_code] << col);
+  }
+
+  static inline BitBoard get_queen_moves(int place, BitBoard blockers) {
+    return get_rook_moves(place, blockers) | get_bishop_moves(place, blockers);
+  }
+
+  static inline BitBoard get_king_moves(int place) { return king_moves[place]; }
+
+  static inline bool is_valid_place(int lin, int col) {
+    return lin >= 0 and lin < 8 and col >= 0 and col < 8;
+  }
+
+  static inline BitBoard get_passed_pawn_mask(int color, int place) {
+    return pawn_passed_mask[color][place];
+  }
+
+  static inline BitBoard get_neighbor_col_mask(int place) {
+    return neighbor_col[place];
+  }
+
+  static inline BitBoard get_col_mask(int place) {
+    return BitBoard(col_mask << col_of_place(place),
+                    col_mask << line_of_place(place));
+  }
+
+  inline void print(FILE *f) const {
+    char tmp[8][16];
+    for (int l = 0; l < 8; ++l) {
+      for (int c = 0; c < 8; ++c) {
+        tmp[l][c] = '0' + is_set(make_place(l, c));
+      }
+      tmp[l][8] = 0;
+    }
+    for (int l = 7; l >= 0; --l) {
+      fprintf(f, "%s\n", tmp[l]);
+    }
+    fprintf(f, "\n");
+  }
+
+  static void init_bitboard();
+
 private:
   union {
     struct {
@@ -257,111 +372,5 @@ private:
     uint64_t m_board64;
   };
 };
-
-extern BitBoard pawn_moves[2][64];
-extern BitBoard pawn_moves2[2][64];
-extern BitBoard pawn_captures[2][64];
-extern BitBoard pawn_promotion[2][64];
-extern BitBoard pawn_passed_mask[2][64];
-
-extern BitBoard neighbor_col[64];
-
-extern BitBoard rook_lin_moves[8][256];
-extern BitBoard rook_col_moves[8][256];
-
-extern BitBoard bishop_diag1_moves[64][256];
-extern BitBoard bishop_diag2_moves[64][256];
-
-extern BitBoard knight_moves[64];
-
-extern BitBoard king_moves[64];
-
-/* not BB */
-inline int get_lin(int place) { return place >> 3; }
-
-/* not BB */
-inline int get_col(int place) { return place & 7; }
-
-/* not BB */
-inline int make_place(int lin, int col) { return col | (lin << 3); }
-
-inline BitBoard get_pawn_noncapture_moves(int color, int place,
-                                          BitBoard blockers) {
-  BitBoard resp = pawn_moves[color][place] & (~blockers);
-  if (not resp.empty()) {
-    resp |= pawn_moves2[color][place] & (~blockers);
-  }
-  return resp;
-}
-
-inline BitBoard get_pawn_capture_moves(int color, int place,
-                                       BitBoard blockers) {
-  return pawn_captures[color][place] & blockers;
-}
-
-inline BitBoard get_pawn_capture_promotion_moves(int color, int place,
-                                                 BitBoard blockers) {
-  return (pawn_captures[color][place] & blockers) |
-         (pawn_promotion[color][place] & (~blockers));
-}
-
-inline BitBoard get_pawn_moves(int color, int place, BitBoard blockers) {
-  return get_pawn_noncapture_moves(color, place, blockers) |
-         get_pawn_capture_moves(color, place, blockers);
-}
-
-inline BitBoard get_knight_moves(int place) { return knight_moves[place]; }
-
-inline BitBoard get_bishop_moves(int place, BitBoard blockers) {
-  int diag1 = diag1_number[place], diag2 = diag2_number[place];
-  int diag1_code = blockers.get_diag1(diag1);
-  int diag2_code = blockers.get_diag2(diag2);
-
-  return bishop_diag1_moves[place][diag1_code] |
-         bishop_diag2_moves[place][diag2_code];
-}
-
-inline BitBoard get_rook_moves(int place, BitBoard blockers) {
-  int lin = get_lin(place), col = get_col(place);
-  int lin_code = blockers.get_line(lin);
-  int col_code = blockers.get_col(col);
-
-  return (rook_lin_moves[col][lin_code] << (lin * 8)) |
-         (rook_col_moves[lin][col_code] << col);
-}
-
-inline BitBoard get_queen_moves(int place, BitBoard blockers) {
-  return get_rook_moves(place, blockers) | get_bishop_moves(place, blockers);
-}
-
-inline BitBoard get_king_moves(int place) { return king_moves[place]; }
-
-inline bool is_valid_place(int lin, int col) {
-  return lin >= 0 and lin < 8 and col >= 0 and col < 8;
-}
-
-inline BitBoard get_passed_pawn_mask(int color, int place) {
-  return pawn_passed_mask[color][place];
-}
-
-inline BitBoard get_neighbor_col_mask(int place) { return neighbor_col[place]; }
-
-inline BitBoard get_col_mask(int place) {
-  return BitBoard(col_mask << get_col(place), col_mask << get_col(place));
-}
-
-inline void print_bitboard(FILE *f, BitBoard b) {
-  char tmp[8][16];
-  for (int l = 0; l < 8; ++l) {
-    for (int c = 0; c < 8; ++c) {
-      tmp[l][c] = '0' + b.is_set(make_place(l, c));
-    }
-    tmp[l][8] = 0;
-  }
-  for (int l = 7; l >= 0; --l) {
-    fprintf(f, "%s\n", tmp[l]);
-  }
-  fprintf(f, "\n");
-}
 
 #endif
