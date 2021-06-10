@@ -7,6 +7,7 @@
 
 #include "debug.h"
 #include "pieces.h"
+#include "place.h"
 
 extern uint8_t pop_count_table[1 << 16];
 extern uint8_t ctz_table[1 << 16];
@@ -163,29 +164,32 @@ public:
     return m_lower != bb.m_lower or m_upper != bb.m_upper;
   }
 
-  inline BitBoard &set(int place) {
-    if (place < 32) {
-      m_lower |= (1 << place);
+  inline BitBoard &set(Place place) {
+    int place_int = place.to_int();
+    if (place_int < 32) {
+      m_lower |= (1 << place_int);
     } else {
-      m_upper |= (1 << (place - 32));
+      m_upper |= (1 << (place_int - 32));
     }
     return *this;
   }
 
-  inline BitBoard &clear(int place) {
-    if (place < 32) {
-      m_lower &= ~(1 << place);
+  inline BitBoard &clear(Place place) {
+    int place_int = place.to_int();
+    if (place_int < 32) {
+      m_lower &= ~(1 << place_int);
     } else {
-      m_upper &= ~(1 << (place - 32));
+      m_upper &= ~(1 << (place_int - 32));
     }
     return *this;
   }
 
-  inline BitBoard &invert(int place) {
-    if (place < 32) {
-      m_lower ^= (1 << place);
+  inline BitBoard &invert(Place place) {
+    int place_int = place.to_int();
+    if (place_int < 32) {
+      m_lower ^= (1 << place_int);
     } else {
-      m_upper ^= (1 << (place - 32));
+      m_upper ^= (1 << (place_int - 32));
     }
     return *this;
   }
@@ -194,11 +198,12 @@ public:
 
   bool inline empty() const { return m_upper == 0 and m_lower == 0; }
 
-  inline bool is_set(int place) const {
-    if (place < 32) {
-      return m_lower & (1 << place);
+  inline bool is_set(Place place) const {
+    int place_int = place.to_int();
+    if (place_int < 32) {
+      return m_lower & (1 << place_int);
     } else {
-      return m_upper & (1 << (place - 32));
+      return m_upper & (1 << (place_int - 32));
     }
   }
 
@@ -227,7 +232,7 @@ public:
            (((m_upper & diag2_mask[d][1]) * diag_rotate_code) >> 24);
   }
 
-  inline int get_one_place() const {
+  inline int get_one_place_int() const {
     if (m_lower) {
       if (m_lower & 0xffff)
         return ctz_table[m_lower & 0xffff];
@@ -242,8 +247,12 @@ public:
     // return __builtin_ctzll(m_board64);
   }
 
-  inline int pop_place() {
-    int p = get_one_place();
+  inline Place get_one_place() const {
+    return Place::of_int(get_one_place_int());
+  }
+
+  inline Place pop_place() {
+    Place p = get_one_place();
     invert(p);
     return p;
   }
@@ -257,15 +266,6 @@ private:
     uint64_t m_board64;
   };
 };
-
-/* not BB */
-inline int line_of_place(int place) { return place >> 3; }
-
-/* not BB */
-inline int col_of_place(int place) { return place & 7; }
-
-/* not BB */
-inline int make_place(int lin, int col) { return col | (lin << 3); }
 
 extern BitBoard pawn_moves[2][64];
 extern BitBoard pawn_moves2[2][64];
@@ -285,44 +285,47 @@ extern BitBoard knight_moves[64];
 
 extern BitBoard king_moves[64];
 
-inline BitBoard get_pawn_noncapture_moves(int color, int place,
+inline BitBoard get_pawn_noncapture_moves(int color, Place place,
                                           BitBoard blockers) {
-  BitBoard resp = pawn_moves[color][place] & (~blockers);
+  BitBoard resp = pawn_moves[color][place.to_int()] & (~blockers);
   if (not resp.empty()) {
-    resp |= pawn_moves2[color][place] & (~blockers);
+    resp |= pawn_moves2[color][place.to_int()] & (~blockers);
   }
   return resp;
 }
 
-inline BitBoard get_pawn_capture_moves(int color, int place,
+inline BitBoard get_pawn_capture_moves(int color, Place place,
                                        BitBoard blockers) {
-  return pawn_captures[color][place] & blockers;
+  return pawn_captures[color][place.to_int()] & blockers;
 }
 
-inline BitBoard get_pawn_capture_promotion_moves(int color, int place,
+inline BitBoard get_pawn_capture_promotion_moves(int color, Place place,
                                                  BitBoard blockers) {
-  return (pawn_captures[color][place] & blockers) |
-         (pawn_promotion[color][place] & (~blockers));
+  return (pawn_captures[color][place.to_int()] & blockers) |
+         (pawn_promotion[color][place.to_int()] & (~blockers));
 }
 
-inline BitBoard get_pawn_moves(int color, int place, BitBoard blockers) {
+inline BitBoard get_pawn_moves(int color, Place place, BitBoard blockers) {
   return get_pawn_noncapture_moves(color, place, blockers) |
          get_pawn_capture_moves(color, place, blockers);
 }
 
-inline BitBoard get_knight_moves(int place) { return knight_moves[place]; }
+inline BitBoard get_knight_moves(Place place) {
+  return knight_moves[place.to_int()];
+}
 
-inline BitBoard get_bishop_moves(int place, BitBoard blockers) {
-  int diag1 = diag1_number[place], diag2 = diag2_number[place];
+inline BitBoard get_bishop_moves(Place place, BitBoard blockers) {
+  int diag1 = diag1_number[place.to_int()],
+      diag2 = diag2_number[place.to_int()];
   int diag1_code = blockers.get_diag1(diag1);
   int diag2_code = blockers.get_diag2(diag2);
 
-  return bishop_diag1_moves[place][diag1_code] |
-         bishop_diag2_moves[place][diag2_code];
+  return bishop_diag1_moves[place.to_int()][diag1_code] |
+         bishop_diag2_moves[place.to_int()][diag2_code];
 }
 
-inline BitBoard get_rook_moves(int place, BitBoard blockers) {
-  int lin = line_of_place(place), col = col_of_place(place);
+inline BitBoard get_rook_moves(Place place, BitBoard blockers) {
+  int lin = place.line(), col = place.col();
   int lin_code = blockers.get_line(lin);
   int col_code = blockers.get_col(col);
 
@@ -330,32 +333,31 @@ inline BitBoard get_rook_moves(int place, BitBoard blockers) {
          (rook_col_moves[lin][col_code] << col);
 }
 
-inline BitBoard get_queen_moves(int place, BitBoard blockers) {
+inline BitBoard get_queen_moves(Place place, BitBoard blockers) {
   return get_rook_moves(place, blockers) | get_bishop_moves(place, blockers);
 }
 
-inline BitBoard get_king_moves(int place) { return king_moves[place]; }
+inline BitBoard get_king_moves(Place place) { return king_moves[place.to_int()]; }
 
 inline bool is_valid_place(int lin, int col) {
   return lin >= 0 and lin < 8 and col >= 0 and col < 8;
 }
 
-inline BitBoard get_passed_pawn_mask(int color, int place) {
-  return pawn_passed_mask[color][place];
+inline BitBoard get_passed_pawn_mask(int color, Place place) {
+  return pawn_passed_mask[color][place.to_int()];
 }
 
-inline BitBoard get_neighbor_col_mask(int place) { return neighbor_col[place]; }
+inline BitBoard get_neighbor_col_mask(Place place) { return neighbor_col[place.to_int()]; }
 
-inline BitBoard get_col_mask(int place) {
-  return BitBoard(col_mask << col_of_place(place),
-                  col_mask << col_of_place(place));
+inline BitBoard get_col_mask(Place place) {
+  return BitBoard(col_mask << place.col(), col_mask << place.col());
 }
 
 inline void print_bitboard(FILE *f, BitBoard b) {
   char tmp[8][16];
   for (int l = 0; l < 8; ++l) {
     for (int c = 0; c < 8; ++c) {
-      tmp[l][c] = '0' + b.is_set(make_place(l, c));
+      tmp[l][c] = '0' + b.is_set(Place::of_line_of_col(l, c));
     }
     tmp[l][8] = 0;
   }

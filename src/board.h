@@ -23,13 +23,9 @@ const int mobility_score[2][7] = {{0, 0, -4, -3, -2, -0, 0},
                                   {0, 0, 4, 3, 2, 0, 0}};
 
 struct Peca {
-  int16_t place;
+  Place place;
   int8_t type;
   int8_t owner;
-};
-
-struct Coord {
-  int16_t place;
 };
 
 struct Pos {
@@ -48,7 +44,7 @@ struct MoveInfo {
   bool fez_passan;
   bool capturou;
   bool promoveu;
-  int8_t passan_place;
+  Place passan_place;
   Pos p;
 };
 
@@ -57,12 +53,12 @@ extern uint64_t hash_code_turn;
 
 struct Board {
   Pos b[64];
-  Coord peca_table[2][8][16];
+  Place peca_table[2][8][16];
   int size_table[2][8];
   BitBoard bb_blockers[2];
   BitBoard bbPeca[2][8];
   int turn;
-  int passan_place;
+  Place passan_place;
   int score;
   uint64_t hash_key;
 
@@ -75,7 +71,7 @@ struct Board {
 
   void clear() {
     memset(b, 0, sizeof(b));
-    passan_place = 64;
+    passan_place = Place::invalid();
     memset(size_table, 0, sizeof(size_table));
     turn = WHITE;
     score = 0;
@@ -128,7 +124,7 @@ struct Board {
         default:
           type = 0;
         }
-        insertPeca(make_place(linha, coluna), type, owner);
+        insertPeca(Place::of_line_of_col(linha, coluna), type, owner);
         ++coluna;
       }
     }
@@ -146,56 +142,56 @@ struct Board {
     this->setFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w");
   }
 
-  void erasePeca2(int place) {
-    Pos p = b[place];
+  void erasePeca2(Place place) {
+    Pos p = b[place.to_int()];
     int tmp = size_table[p.owner][p.type]--;
     if (p.id != tmp - 1) {
       peca_table[p.owner][p.type][p.id] = peca_table[p.owner][p.type][tmp - 1];
-      b[peca_table[p.owner][p.type][p.id].place].id = p.id;
+      b[peca_table[p.owner][p.type][p.id].to_int()].id = p.id;
     }
   }
 
-  void erasePeca(int place) {
-    int owner = b[place].owner;
-    int type = b[place].type;
+  void erasePeca(Place place) {
+    int owner = b[place.to_int()].owner;
+    int type = b[place.to_int()].type;
 
     /* update material count */
     score -= material_table[owner][type];
 
     /* update hahs code */
-    hash_key ^= hash_code[place][type][owner];
+    hash_key ^= hash_code[place.to_int()][type][owner];
 
     /* erase from piece list */
     erasePeca2(place);
 
     /* erase from matrix */
-    b[place].type = CLEAR;
-    b[place].owner = NONE;
+    b[place.to_int()].type = CLEAR;
+    b[place.to_int()].owner = NONE;
 
     /* erase from bit board */
     bb_blockers[owner].invert(place);
     bbPeca[owner][type].invert(place);
   }
 
-  void insertPeca2(int place, int type, int owner) {
+  void insertPeca2(Place place, int type, int owner) {
     int tmp = size_table[owner][type]++;
-    peca_table[owner][type][tmp].place = place;
-    b[place].id = tmp;
+    peca_table[owner][type][tmp] = place;
+    b[place.to_int()].id = tmp;
   }
 
-  void insertPeca(int place, int type, int owner) {
+  void insertPeca(Place place, int type, int owner) {
     /* update material count */
     score += material_table[owner][type];
 
     /* update hash code */
-    hash_key ^= hash_code[place][type][owner];
+    hash_key ^= hash_code[place.to_int()][type][owner];
 
     /* insrt to piece list */
     insertPeca2(place, type, owner);
 
     /* insrt to matrix */
-    b[place].type = type;
-    b[place].owner = owner;
+    b[place.to_int()].type = type;
+    b[place.to_int()].owner = owner;
 
     /* insert to bitboard */
     bb_blockers[owner].invert(place);
@@ -204,21 +200,21 @@ struct Board {
 
   void movePeca(const Move &m) {
     Pos s;
-    int owner = b[m.o].owner;
-    int type = b[m.o].type;
-    int id = b[m.o].id;
+    int owner = b[m.o.to_int()].owner;
+    int type = b[m.o.to_int()].type;
+    int id = b[m.o.to_int()].id;
 
     /* update hash code */
-    hash_key ^= hash_code[m.o][type][owner];
-    hash_key ^= hash_code[m.d][type][owner];
+    hash_key ^= hash_code[m.o.to_int()][type][owner];
+    hash_key ^= hash_code[m.d.to_int()][type][owner];
 
     /* update piece list */
-    peca_table[owner][type][id].place = m.d;
+    peca_table[owner][type][id] = m.d;
 
     /* update matrix */
-    b[m.d] = b[m.o];
-    b[m.o].type = CLEAR;
-    b[m.o].owner = NONE;
+    b[m.d.to_int()] = b[m.o.to_int()];
+    b[m.o.to_int()].type = CLEAR;
+    b[m.o.to_int()].owner = NONE;
 
     /* update bitboard */
     bb_blockers[owner].invert(m.o);
@@ -227,25 +223,26 @@ struct Board {
     bbPeca[owner][type].invert(m.d);
   }
 
-  void setType(int place, int type) {
+  void setType(Place place, int type) {
     /* update material */
-    score += material_table[b[place].owner][type] -
-             material_table[b[place].owner][b[place].type];
+    score += material_table[b[place.to_int()].owner][type] -
+             material_table[b[place.to_int()].owner][b[place.to_int()].type];
 
     /* update hash code */
-    hash_key ^= hash_code[place][type][b[place].owner];
-    hash_key ^= hash_code[place][b[place].type][b[place].owner];
+    hash_key ^= hash_code[place.to_int()][type][b[place.to_int()].owner];
+    hash_key ^= hash_code[place.to_int()][b[place.to_int()].type]
+                         [b[place.to_int()].owner];
 
     /* update list */
     erasePeca2(place);
-    insertPeca2(place, type, b[place].owner);
+    insertPeca2(place, type, b[place.to_int()].owner);
 
     /* update the bitboard */
-    bbPeca[b[place].owner][b[place].type].invert(place);
-    bbPeca[b[place].owner][type].invert(place);
+    bbPeca[b[place.to_int()].owner][b[place.to_int()].type].invert(place);
+    bbPeca[b[place.to_int()].owner][type].invert(place);
 
     /* update matrix */
-    b[place].type = type;
+    b[place.to_int()].type = type;
   }
 
   MoveInfo move(Move m) {
@@ -257,11 +254,11 @@ struct Board {
     history[move_count++] = hash_key;
 
     /* get the type of the piece to be moved */
-    int type = b[m.o].type;
+    int type = b[m.o.to_int()].type;
 
     /* copia peca capturada */
-    if (b[m.d].type != CLEAR) {
-      mi.p = b[m.d];
+    if (b[m.d.to_int()].type != CLEAR) {
+      mi.p = b[m.d.to_int()];
       mi.capturou = true;
       erasePeca(m.d);
     } else {
@@ -272,7 +269,7 @@ struct Board {
     movePeca(m);
 
     /* promove */
-    if (type == PAWN and (m.d >= (64 - 8) or m.d < 8)) {
+    if (type == PAWN && (m.d.to_int() >= (64 - 8) or m.d.to_int() < 8)) {
       setType(m.d, QUEEN);
       mi.promoveu = true;
     } else {
@@ -281,18 +278,19 @@ struct Board {
 
     /* marca posição de en passan */
     mi.passan_place = passan_place;
-    if (type == PAWN and (m.d - m.o == 16 or m.d - m.o == -16)) {
-      passan_place = (m.o + m.d) / 2;
+    if (type == PAWN && (m.d.to_int() - m.o.to_int() == 16 ||
+                         m.d.to_int() - m.o.to_int() == -16)) {
+      passan_place = Place::of_int((m.o.to_int() + m.d.to_int()) / 2);
     } else {
-      passan_place = 64;
+      passan_place = Place::invalid();
     }
 
     ASSERT(checkBoard());
 
     /* faz en passan */
-    if (type == PAWN and (not mi.capturou) and m.dc() != m.oc()) {
-      int p = make_place(m.ol(), m.dc());
-      mi.p = b[p];
+    if (type == PAWN && (not mi.capturou) && m.dc() != m.oc()) {
+      Place p = Place::of_line_of_col(m.ol(), m.dc());
+      mi.p = b[p.to_int()];
       mi.fez_passan = true;
       erasePeca(p);
     } else {
@@ -302,11 +300,11 @@ struct Board {
     /* faz roque */
     mi.castle = 0;
     if (type == KING) {
-      if ((m.d - m.o) == 2) {
-        movePeca(Move(m.d + 1, m.d - 1));
+      if ((m.d.to_int() - m.o.to_int()) == 2) {
+        movePeca(Move(m.d.right(), m.d.left()));
         mi.castle = 1;
-      } else if ((m.d - m.o) == -2) {
-        movePeca(Move(m.d - 2, m.d + 1));
+      } else if ((m.d.to_int() - m.o.to_int()) == -2) {
+        movePeca(Move(m.d.left().left(), m.d.right()));
         mi.castle = 1;
       }
     }
@@ -330,10 +328,10 @@ struct Board {
 
     /* desfaz roque */
     if (mi.castle) {
-      if ((m.d - m.o) == 2) {
-        movePeca(Move(m.d - 1, m.d + 1));
+      if ((m.d.to_int() - m.o.to_int()) == 2) {
+        movePeca(Move(m.d.left(), m.d.right()));
       } else {
-        movePeca(Move(m.d + 1, m.d - 2));
+        movePeca(Move(m.d.right(), m.d.left().left()));
       }
     }
 
@@ -344,7 +342,7 @@ struct Board {
 
     /* desfaz passan */
     if (mi.fez_passan) {
-      insertPeca(make_place(m.ol(), m.dc()), mi.p.type, mi.p.owner);
+      insertPeca(Place::of_line_of_col(m.ol(), m.dc()), mi.p.type, mi.p.owner);
     }
 
     /* volta a posição de en passan */
@@ -371,7 +369,7 @@ struct Board {
 
     /* marca coluna de en passan */
     mi.passan_place = passan_place;
-    passan_place = 64;
+    passan_place = Place::invalid();
 
     /* troca a vez */
     turn = OPPONENT(turn);
@@ -394,38 +392,40 @@ struct Board {
 
   bool validatePawn(const Move &m) {
     BitBoard blockers = this->getBlockers();
-    if (this->passan_place != 64)
+    if (this->passan_place.is_valid())
       blockers.set(this->passan_place);
-    BitBoard dest = get_pawn_moves(b[m.o].owner, m.o, blockers) &
-                    ~(this->bb_blockers[b[m.o].owner]);
+    BitBoard dest = get_pawn_moves(b[m.o.to_int()].owner, m.o, blockers) &
+                    ~(this->bb_blockers[b[m.o.to_int()].owner]);
     return dest.is_set(m.d);
   }
 
   bool validateKnight(const Move &m) {
-    BitBoard dest = get_knight_moves(m.o) & ~(this->bb_blockers[b[m.o].owner]);
+    BitBoard dest =
+        get_knight_moves(m.o) & ~(this->bb_blockers[b[m.o.to_int()].owner]);
     return dest.is_set(m.d);
   }
 
   bool validateBishop(const Move &m) {
     BitBoard dest = get_bishop_moves(m.o, this->getBlockers()) &
-                    ~(this->bb_blockers[b[m.o].owner]);
+                    ~(this->bb_blockers[b[m.o.to_int()].owner]);
     return dest.is_set(m.d);
   }
 
   bool validateKing(const Move &m) {
-    BitBoard dest = get_king_moves(m.o) & ~(this->bb_blockers[b[m.o].owner]);
+    BitBoard dest =
+        get_king_moves(m.o) & ~(this->bb_blockers[b[m.o.to_int()].owner]);
     return dest.is_set(m.d);
   }
 
   bool validateRook(Move m) {
     BitBoard dest = get_rook_moves(m.o, this->getBlockers()) &
-                    ~(this->bb_blockers[b[m.o].owner]);
+                    ~(this->bb_blockers[b[m.o.to_int()].owner]);
     return dest.is_set(m.d);
   }
 
   bool validateQueen(const Move &m) {
     BitBoard dest = get_queen_moves(m.o, this->getBlockers()) &
-                    ~(this->bb_blockers[b[m.o].owner]);
+                    ~(this->bb_blockers[b[m.o.to_int()].owner]);
     return dest.is_set(m.d);
   }
 
@@ -433,7 +433,7 @@ struct Board {
     bool valid = true;
     int player = this->turn;
     /* verifica a vez */
-    if (b[m.o].owner != player) {
+    if (b[m.o.to_int()].owner != player) {
       return false;
     }
     /* verifica jogada sem sentido */
@@ -442,7 +442,7 @@ struct Board {
     }
 
     /* valida o movimento da peça */
-    switch (b[m.o].type) {
+    switch (b[m.o.to_int()].type) {
     case PAWN:
       valid = validatePawn(m);
       break;
@@ -485,7 +485,8 @@ struct Board {
     std::string fen;
     for (int l = 7; l >= 0; --l) {
       for (int c = 0; c < 8; ++c) {
-        fen += tabela[b[make_place(l, c)].owner][b[make_place(l, c)].type];
+        fen += tabela[b[Place::of_line_of_col(l, c).to_int()].owner]
+                     [b[Place::of_line_of_col(l, c).to_int()].type];
       }
       fen += '/';
     }
@@ -514,11 +515,11 @@ struct Board {
     for (int l = 7;; l--) {
       for (int c = 0; c < 8; c++) {
         linha += '|';
-        if (b[make_place(l, c)].type == CLEAR) {
+        if (b[Place::of_line_of_col(l, c).to_int()].type == CLEAR) {
           linha += "  ";
         } else {
-          linha += tabela[(int)b[make_place(l, c)].type];
-          linha += tabela2[b[make_place(l, c)].owner];
+          linha += tabela[(int)b[Place::of_line_of_col(l, c).to_int()].type];
+          linha += tabela2[b[Place::of_line_of_col(l, c).to_int()].owner];
         }
       }
       linha += '|';
@@ -548,28 +549,29 @@ struct Board {
   bool checkBoard() {
     for (int l = 0; l < 8; ++l) {
       for (int c = 0; c < 8; ++c) {
-        int place = make_place(l, c);
-        int type = b[place].type, owner = b[place].owner, id = b[place].id;
-        if ((this->bb_blockers[0].is_set(place) and (owner != BLACK)) or
-            (not this->bb_blockers[0].is_set(place) and (owner == BLACK))) {
+        Place place = Place::of_line_of_col(l, c);
+        int type = b[place.to_int()].type, owner = b[place.to_int()].owner,
+            id = b[place.to_int()].id;
+        if ((this->bb_blockers[0].is_set(place) && (owner != BLACK)) or
+            (not this->bb_blockers[0].is_set(place) && (owner == BLACK))) {
           fprintf(log_file, "blockers bitboard ta errado em (%d,%d) %d\n", l, c,
-                  place);
+                  place.to_int());
           print_bitboard(log_file, this->getBlockers());
           goto erro;
         }
-        if (type == CLEAR and owner != NONE) {
+        if (type == CLEAR && owner != NONE) {
           fprintf(log_file, "%d %d dono de posicao vazia\n", l, c);
           print(log_file);
           goto erro;
         }
-        if (type != CLEAR and owner == NONE) {
+        if (type != CLEAR && owner == NONE) {
           fprintf(log_file, "%d %d peca sem dono\n", l, c);
           print(log_file);
           goto erro;
         }
         if (type == CLEAR)
           continue;
-        if (peca_table[owner][type][id].place != place) {
+        if (peca_table[owner][type][id] != place) {
           fprintf(log_file, "2 - peca_table nao bate\n");
           fprintf(log_file,
                   "peca_table[%d][%d][%d] = (l=%d,c=%d) b = "
@@ -583,18 +585,18 @@ struct Board {
     for (int owner = 0; owner < 2; ++owner) {
       for (int type = 1; type < 7; ++type) {
         for (int i = 0; i < size_table[owner][type]; ++i) {
-          if (b[peca_table[owner][type][i].place].owner != owner or
-              b[peca_table[owner][type][i].place].type != type or
-              b[peca_table[owner][type][i].place].id != i) {
-            int l = peca_table[owner][type][i].place / 8;
-            int c = peca_table[owner][type][i].place % 8;
-            int place = peca_table[owner][type][i].place;
+          if (b[peca_table[owner][type][i].to_int()].owner != owner or
+              b[peca_table[owner][type][i].to_int()].type != type or
+              b[peca_table[owner][type][i].to_int()].id != i) {
+            int l = peca_table[owner][type][i].line();
+            int c = peca_table[owner][type][i].col();
+            Place place = peca_table[owner][type][i];
             fprintf(log_file, "1 - peca_table nao bate\n");
             fprintf(log_file,
                     "peca_table[%d][%d][%d] = (l=%d,c=%d) "
                     "b(type=%d,owner=%d,id=%d)\n",
-                    owner, type, i, l, c, b[place].type, b[place].owner,
-                    b[place].id);
+                    owner, type, i, l, c, b[place.to_int()].type,
+                    b[place.to_int()].owner, b[place.to_int()].id);
             print(log_file);
             print_bitboard(log_file, this->getBlockers());
             goto erro;
@@ -609,36 +611,36 @@ struct Board {
     return false;
   }
 
-  bool checkAttack(int place, int player) {
+  bool checkAttack(Place place, int player) {
     for (int i = 0; i < size_table[player][PAWN]; ++i) {
-      if (validatePawn(Move(peca_table[player][PAWN][i].place, place)))
+      if (validatePawn(Move(peca_table[player][PAWN][i], place)))
         return true;
     }
     for (int i = 0; i < size_table[player][KNIGHT]; ++i) {
-      if (validateKnight(Move(peca_table[player][KNIGHT][i].place, place)))
+      if (validateKnight(Move(peca_table[player][KNIGHT][i], place)))
         return true;
     }
     for (int i = 0; i < size_table[player][BISHOP]; ++i) {
-      if (validateBishop(Move(peca_table[player][BISHOP][i].place, place)))
+      if (validateBishop(Move(peca_table[player][BISHOP][i], place)))
         return true;
     }
     for (int i = 0; i < size_table[player][ROOK]; ++i) {
-      if (validateRook(Move(peca_table[player][ROOK][i].place, place)))
+      if (validateRook(Move(peca_table[player][ROOK][i], place)))
         return true;
     }
     for (int i = 0; i < size_table[player][QUEEN]; ++i) {
-      if (validateQueen(Move(peca_table[player][QUEEN][i].place, place)))
+      if (validateQueen(Move(peca_table[player][QUEEN][i], place)))
         return true;
     }
     for (int i = 0; i < size_table[player][KING]; ++i) {
-      if (validateKing(Move(peca_table[player][KING][i].place, place)))
+      if (validateKing(Move(peca_table[player][KING][i], place)))
         return true;
     }
     return false;
   }
 
   bool checkCheck(int player) {
-    return checkAttack(peca_table[player][KING][0].place, OPPONENT(player));
+    return checkAttack(peca_table[player][KING][0], OPPONENT(player));
   }
 
   bool checkCheck() { return checkCheck(this->turn); }
@@ -647,10 +649,10 @@ struct Board {
     return this->bb_blockers[WHITE] | this->bb_blockers[BLACK];
   }
 
-  int popgMoves(int o, BitBoard b, Move *list) const {
+  int popgMoves(Place o, BitBoard b, Move *list) const {
     int n = 0;
     while (not b.empty()) {
-      int d = b.pop_place();
+      Place d = b.pop_place();
       list[n++] = Move(o, d);
     }
     return n;
@@ -658,70 +660,70 @@ struct Board {
 
   bool checkPawnMove(const Move &m, int owner) const {
     int dir = (owner == WHITE) ? 1 : -1;
-    if (m.d - m.o == 8 * dir) {
+    if (m.d.to_int() - m.o.to_int() == 8 * dir) {
       /* uma casa para frente */
-      return b[m.d].owner == NONE;
-    } else if (m.d - m.o == 16 * dir) {
+      return b[m.d.to_int()].owner == NONE;
+    } else if (m.d.to_int() - m.o.to_int() == 16 * dir) {
       /* duas casas para frente */
-      return b[m.d].owner == NONE and b[(m.d + m.o) / 2].owner == NONE;
-    } else if ((m.oc() > 0 and m.ol() + dir == m.dl() and
-                m.oc() - 1 == m.dc()) or
-               ((m.oc() < 7 and m.ol() + dir == m.dl() and
+      return b[m.d.to_int()].owner == NONE &&
+             b[(m.d.to_int() + m.o.to_int()) / 2].owner == NONE;
+    } else if ((m.oc() > 0 && m.ol() + dir == m.dl() && m.oc() - 1 == m.dc()) or
+               ((m.oc() < 7 && m.ol() + dir == m.dl() &&
                  m.oc() + 1 == m.dc()))) {
       /* captura ou en passan */
-      return b[m.d].owner == OPPONENT(owner) or m.d == passan_place;
+      return b[m.d.to_int()].owner == OPPONENT(owner) or m.d == passan_place;
     } else {
       return false;
     }
   }
 
-  int listPawnMovesg(int color, int place, Move *list) const {
+  int listPawnMovesg(int color, Place place, Move *list) const {
     BitBoard blockers = this->getBlockers();
-    if (this->passan_place != 64)
+    if (this->passan_place.is_valid())
       blockers.set(this->passan_place);
     BitBoard dest =
         get_pawn_moves(color, place, blockers) & ~(this->bb_blockers[color]);
     return popgMoves(place, dest, list);
   }
 
-  int listPawnAttacksg(int color, int place, Move *list) const {
+  int listPawnAttacksg(int color, Place place, Move *list) const {
     BitBoard blockers = this->getBlockers();
-    if (this->passan_place < 64)
+    if (this->passan_place.is_valid())
       blockers.set(this->passan_place);
     BitBoard dest = get_pawn_capture_promotion_moves(color, place, blockers) &
                     ~(this->bb_blockers[color]);
     return popgMoves(place, dest, list);
   }
 
-  int listKnightMovesg(int color, int place, Move *list) const {
+  int listKnightMovesg(int color, Place place, Move *list) const {
     BitBoard dest = get_knight_moves(place) & ~(this->bb_blockers[color]);
     return popgMoves(place, dest, list);
   }
 
-  int listKnightAttacksg(int color, int place, Move *list) const {
+  int listKnightAttacksg(int color, Place place, Move *list) const {
     BitBoard dest =
         get_knight_moves(place) & this->bb_blockers[OPPONENT(color)];
     return popgMoves(place, dest, list);
   }
 
-  int countKnightMovesg(int color, int place) const {
+  int countKnightMovesg(int color, Place place) const {
     BitBoard dest = get_knight_moves(place) & ~(this->bb_blockers[color]);
     return dest.pop_count();
   }
 
-  int listRookMovesg(int color, int place, Move *list) const {
+  int listRookMovesg(int color, Place place, Move *list) const {
     BitBoard dest = get_rook_moves(place, this->getBlockers()) &
                     ~(this->bb_blockers[color]);
     return popgMoves(place, dest, list);
   }
 
-  int listRookAttacksg(int color, int place, Move *list) const {
+  int listRookAttacksg(int color, Place place, Move *list) const {
     BitBoard dest = get_rook_moves(place, this->getBlockers()) &
                     this->bb_blockers[OPPONENT(color)];
     return popgMoves(place, dest, list);
   }
 
-  int countRookMovesg(int color, int place) const {
+  int countRookMovesg(int color, Place place) const {
     BitBoard block = ((this->bb_blockers[color] ^ this->bbPeca[color][ROOK]) ^
                       this->bbPeca[color][QUEEN]);
     // BitBoard block = this->bb_blockers[color];
@@ -731,19 +733,19 @@ struct Board {
     return dest.pop_count();
   }
 
-  int listBishopMovesg(int color, int place, Move *list) const {
+  int listBishopMovesg(int color, Place place, Move *list) const {
     BitBoard dest = get_bishop_moves(place, this->getBlockers()) &
                     ~(this->bb_blockers[color]);
     return popgMoves(place, dest, list);
   }
 
-  int listBishopAttacksg(int color, int place, Move *list) const {
+  int listBishopAttacksg(int color, Place place, Move *list) const {
     BitBoard dest = get_bishop_moves(place, this->getBlockers()) &
                     this->bb_blockers[OPPONENT(color)];
     return popgMoves(place, dest, list);
   }
 
-  int countBishopMovesg(int color, int place) const {
+  int countBishopMovesg(int color, Place place) const {
     BitBoard block = ((this->bb_blockers[color] ^ this->bbPeca[color][BISHOP]) ^
                       this->bbPeca[color][QUEEN]);
     // BitBoard block = (this->bb_blockers[color]);
@@ -753,29 +755,29 @@ struct Board {
     return dest.pop_count();
   }
 
-  int listKingMovesg(int color, int place, Move *list) const {
+  int listKingMovesg(int color, Place place, Move *list) const {
     BitBoard dest = get_king_moves(place) & ~(this->bb_blockers[color]);
     return popgMoves(place, dest, list);
   }
 
-  int listKingAttacksg(int color, int place, Move *list) const {
+  int listKingAttacksg(int color, Place place, Move *list) const {
     BitBoard dest = get_king_moves(place) & this->bb_blockers[OPPONENT(color)];
     return popgMoves(place, dest, list);
   }
 
-  int listQueenMovesg(int color, int place, Move *list) const {
+  int listQueenMovesg(int color, Place place, Move *list) const {
     BitBoard dest = get_queen_moves(place, this->getBlockers()) &
                     ~(this->bb_blockers[color]);
     return popgMoves(place, dest, list);
   }
 
-  int listQueenAttacksg(int color, int place, Move *list) const {
+  int listQueenAttacksg(int color, Place place, Move *list) const {
     BitBoard dest = get_queen_moves(place, this->getBlockers()) &
                     this->bb_blockers[OPPONENT(color)];
     return popgMoves(place, dest, list);
   }
 
-  NOINLINE int countQueenMovesg(int color, int place, Move *list) {
+  NOINLINE int countQueenMovesg(int color, Place place, Move *list) {
     BitBoard block = (((this->bb_blockers[color] ^ this->bbPeca[color][ROOK]) ^
                        this->bbPeca[color][QUEEN]) ^
                       this->bbPeca[color][BISHOP]);
@@ -789,27 +791,27 @@ struct Board {
     int n = 0;
 
     for (int i = 0; i < size_table[t][PAWN]; ++i) {
-      n += listPawnMovesg(t, peca_table[t][PAWN][i].place, list + n);
+      n += listPawnMovesg(t, peca_table[t][PAWN][i], list + n);
     }
 
     for (int i = 0; i < size_table[t][KNIGHT]; ++i) {
-      n += listKnightMovesg(t, peca_table[t][KNIGHT][i].place, list + n);
+      n += listKnightMovesg(t, peca_table[t][KNIGHT][i], list + n);
     }
 
     for (int i = 0; i < size_table[t][BISHOP]; ++i) {
-      n += listBishopMovesg(t, peca_table[t][BISHOP][i].place, list + n);
+      n += listBishopMovesg(t, peca_table[t][BISHOP][i], list + n);
     }
 
     for (int i = 0; i < size_table[t][ROOK]; ++i) {
-      n += listRookMovesg(t, peca_table[t][ROOK][i].place, list + n);
+      n += listRookMovesg(t, peca_table[t][ROOK][i], list + n);
     }
 
     for (int i = 0; i < size_table[t][QUEEN]; ++i) {
-      n += listQueenMovesg(t, peca_table[t][QUEEN][i].place, list + n);
+      n += listQueenMovesg(t, peca_table[t][QUEEN][i], list + n);
     }
 
     for (int i = 0; i < size_table[t][KING]; ++i) {
-      n += listKingMovesg(t, peca_table[t][KING][i].place, list + n);
+      n += listKingMovesg(t, peca_table[t][KING][i], list + n);
     }
 
     return n;
@@ -819,27 +821,27 @@ struct Board {
     int n = 0;
 
     for (int i = 0; i < size_table[t][PAWN]; ++i) {
-      n += listPawnAttacksg(t, peca_table[t][PAWN][i].place, list + n);
+      n += listPawnAttacksg(t, peca_table[t][PAWN][i], list + n);
     }
 
     for (int i = 0; i < size_table[t][KNIGHT]; ++i) {
-      n += listKnightAttacksg(t, peca_table[t][KNIGHT][i].place, list + n);
+      n += listKnightAttacksg(t, peca_table[t][KNIGHT][i], list + n);
     }
 
     for (int i = 0; i < size_table[t][BISHOP]; ++i) {
-      n += listBishopAttacksg(t, peca_table[t][BISHOP][i].place, list + n);
+      n += listBishopAttacksg(t, peca_table[t][BISHOP][i], list + n);
     }
 
     for (int i = 0; i < size_table[t][ROOK]; ++i) {
-      n += listRookAttacksg(t, peca_table[t][ROOK][i].place, list + n);
+      n += listRookAttacksg(t, peca_table[t][ROOK][i], list + n);
     }
 
     for (int i = 0; i < size_table[t][QUEEN]; ++i) {
-      n += listQueenAttacksg(t, peca_table[t][QUEEN][i].place, list + n);
+      n += listQueenAttacksg(t, peca_table[t][QUEEN][i], list + n);
     }
 
     for (int i = 0; i < size_table[t][KING]; ++i) {
-      n += listKingAttacksg(t, peca_table[t][KING][i].place, list + n);
+      n += listKingAttacksg(t, peca_table[t][KING][i], list + n);
     }
 
     return n;
@@ -850,7 +852,7 @@ struct Board {
     MoveInfo mi;
     int n = listMovesg(moves, turn);
     bool res = true;
-    int k = peca_table[turn][KING][0].place;
+    Place k = peca_table[turn][KING][0];
 
     for (int i = 0; i < n; ++i) {
       mi = move(moves[i]);
@@ -881,9 +883,9 @@ struct Board {
     for (int t = 0; t < 2; ++t) {
       int op = OPPONENT(t);
       for (int i = 0; i < size_table[t][PAWN]; ++i) {
-        int p = peca_table[t][PAWN][i].place;
+        Place p = peca_table[t][PAWN][i];
         if ((get_passed_pawn_mask(t, p) & bbPeca[op][PAWN]) == 0) {
-          pawn_score += passed_pawn_score[t][line_of_place(p)];
+          pawn_score += passed_pawn_score[t][p.line()];
         }
         if ((get_neighbor_col_mask(p) & bbPeca[t][PAWN]) == 0) {
           pawn_score += isolated_pawn_score[t];
@@ -914,15 +916,15 @@ struct Board {
     for (int t = 0; t < 2; ++t) {
       for (int i = 0; i < size_table[t][KNIGHT]; ++i) {
         mob_score += mobility_score[t][KNIGHT] *
-                     countKnightMovesg(t, peca_table[t][KNIGHT][i].place);
+                     countKnightMovesg(t, peca_table[t][KNIGHT][i]);
       }
       for (int i = 0; i < size_table[t][BISHOP]; ++i) {
         mob_score += mobility_score[t][BISHOP] *
-                     countBishopMovesg(t, peca_table[t][BISHOP][i].place);
+                     countBishopMovesg(t, peca_table[t][BISHOP][i]);
       }
       for (int i = 0; i < size_table[t][ROOK]; ++i) {
         mob_score += mobility_score[t][ROOK] *
-                     countRookMovesg(t, peca_table[t][ROOK][i].place);
+                     countRookMovesg(t, peca_table[t][ROOK][i]);
       }
     }
 

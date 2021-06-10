@@ -18,8 +18,9 @@ struct MoveScore {
   Move m;
   int score;
   void setScore(const Board &board) {
-    int c = cap_table[board.b[m.d].type];
-    score = move_history[board.move_count][m.o][m.d] + c * 512;
+    int c = cap_table[board.b[m.d.to_int()].type];
+    score =
+        move_history[board.move_count][m.o.to_int()][m.d.to_int()] + c * 512;
   }
   inline bool operator<(const MoveScore &ms) const { return score > ms.score; }
 };
@@ -121,7 +122,7 @@ int search(Board &board, int depth, int alfa = -INFINITE_SCORE,
     }
 
     /* mate */
-    if (board.b[list[i].d].type == KING) {
+    if (board.b[list[i].d.to_int()].type == KING) {
       best_score = (mate_score + depth);
       best_move = list[i];
       break;
@@ -184,7 +185,8 @@ int search(Board &board, int depth, int alfa = -INFINITE_SCORE,
 
   if (best_move != Move(0, 0, 0, 0)) {
     ASSERT(board.move_count < 1024);
-    if ((++move_history[board.move_count][best_move.o][best_move.d]) >= 512) {
+    if ((++move_history[board.move_count][best_move.o.to_int()]
+                       [best_move.d.to_int()]) >= 512) {
       for (int i = 0; i < 64; ++i)
         for (int j = 0; j < 64; ++j) {
           move_history[board.move_count][i][j] /= 2;
@@ -195,7 +197,7 @@ int search(Board &board, int depth, int alfa = -INFINITE_SCORE,
   return best_score;
 }
 
-Move ComputerPlay(Board& board, int depth, bool post) {
+Move ComputerPlay(Board &board, int depth, bool post) {
   // TODO: make a copy of board
   Move best;
   hash_slot *slot;

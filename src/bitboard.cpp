@@ -46,41 +46,44 @@ void init_bitboard() {
   }
 
   for (int p = 8; p < 64 - 8; ++p) {
-    int col = col_of_place(p);
-    int lin = line_of_place(p);
+    Place place = Place::of_int(p);
+    int col = place.col();
+    int lin = place.line();
     /* movimento para frente */
-    pawn_moves[BLACK][p].set(p - 8);
-    pawn_moves[WHITE][p].set(p + 8);
+    pawn_moves[BLACK][p].set(place.down());
+    pawn_moves[WHITE][p].set(place.up());
 
     if (col > 0) {
       /* captura para esquerda */
-      pawn_captures[BLACK][p].set(p - 1 - 8);
-      pawn_captures[WHITE][p].set(p - 1 + 8);
+      pawn_captures[BLACK][p].set(place.down().left());
+      pawn_captures[WHITE][p].set(place.up().left());
     }
 
     if (col < 7) {
       /* captura para a direita */
-      pawn_captures[BLACK][p].set(p + 1 - 8);
-      pawn_captures[WHITE][p].set(p + 1 + 8);
+      pawn_captures[BLACK][p].set(place.down().right());
+      pawn_captures[WHITE][p].set(place.up().right());
     }
 
     if (lin == 1) {
-      pawn_promotion[BLACK][p].set(p - 8);
-      pawn_moves2[WHITE][p].set(p + 16);
+      // black promotion
+      pawn_promotion[BLACK][p].set(place.down());
+      // white double move
+      pawn_moves2[WHITE][p].set(place.up().up());
     }
 
     if (lin == 6) {
-      pawn_promotion[WHITE][p].set(p + 8);
-      pawn_moves2[BLACK][p].set(p - 16);
+      pawn_promotion[WHITE][p].set(place.up());
+      pawn_moves2[BLACK][p].set(place.down().down());
     }
 
     /* set passed mask */
     for (int c1 = max(0, col - 1); c1 <= min(7, col + 1); ++c1) {
       for (int l1 = lin + 1; l1 < 8; ++l1) {
-        pawn_passed_mask[WHITE][p].set(make_place(l1, c1));
+        pawn_passed_mask[WHITE][p].set(Place::of_line_of_col(l1, c1));
       }
       for (int l1 = lin - 1; l1 >= 0; --l1) {
-        pawn_passed_mask[BLACK][p].set(make_place(l1, c1));
+        pawn_passed_mask[BLACK][p].set(Place::of_line_of_col(l1, c1));
       }
     }
   }
@@ -90,12 +93,12 @@ void init_bitboard() {
   static const int ndc[] = {1, 2, 2, 1, -1, -2, -2, -1};
   for (int lin = 0; lin < 8; ++lin) {
     for (int col = 0; col < 8; ++col) {
-      int p = make_place(lin, col);
-      knight_moves[p].clear();
+      Place p = Place::of_line_of_col(lin, col);
+      knight_moves[p.to_int()].clear();
       for (int i = 0; i < 8; ++i) {
         int lin1 = lin + ndl[i], col1 = col + ndc[i];
         if (is_valid_place(lin1, col1)) {
-          knight_moves[p].set(make_place(lin1, col1));
+          knight_moves[p.to_int()].set(Place::of_line_of_col(lin1, col1));
         }
       }
     }
@@ -106,12 +109,12 @@ void init_bitboard() {
   static const int kdc[] = {1, 0, -1, -1, -1, 0, 1, 1};
   for (int lin = 0; lin < 8; ++lin) {
     for (int col = 0; col < 8; ++col) {
-      int p = make_place(lin, col);
-      king_moves[p].clear();
+      Place p = Place::of_line_of_col(lin, col);
+      king_moves[p.to_int()].clear();
       for (int i = 0; i < 8; ++i) {
         int lin1 = lin + kdl[i], col1 = col + kdc[i];
         if (is_valid_place(lin1, col1)) {
-          king_moves[p].set(make_place(lin1, col1));
+          king_moves[p.to_int()].set(Place::of_line_of_col(lin1, col1));
         }
       }
     }
@@ -130,12 +133,12 @@ void init_bitboard() {
       for (int j = 0; j < 2; ++j) {
         int c = 0;
         for (c = i + rd[j]; c < 8 and c >= 0 and tmp[c] == 0; c += rd[j]) {
-          bb1.set(make_place(0, c));
-          bb2.set(make_place(c, 0));
+          bb1.set(Place::of_line_of_col(0, c));
+          bb2.set(Place::of_line_of_col(c, 0));
         }
         if (c < 8 and c >= 0) {
-          bb1.set(make_place(0, c));
-          bb2.set(make_place(c, 0));
+          bb1.set(Place::of_line_of_col(0, c));
+          bb2.set(Place::of_line_of_col(c, 0));
         }
       }
       rook_lin_moves[i][m] = bb1;
@@ -150,7 +153,7 @@ void init_bitboard() {
   static const int bdc2[] = {1, -1};
   for (int lin = 0; lin < 8; ++lin) {
     for (int col = 0; col < 8; ++col) {
-      int p = make_place(lin, col);
+      Place p = Place::of_line_of_col(lin, col);
       for (int m = 0; m < 256; ++m) {
         /* unpack mask */
         for (int i = 0; i < 8; ++i) {
@@ -164,26 +167,26 @@ void init_bitboard() {
           for (c = col + bdc1[i], l = lin + bdl1[i];
                is_valid_place(l, c) and tmp[c] == 0;
                c += bdc1[i], l += bdl1[i]) {
-            bb.set(make_place(l, c));
+            bb.set(Place::of_line_of_col(l, c));
           }
           if (is_valid_place(l, c)) {
-            bb.set(make_place(l, c));
+            bb.set(Place::of_line_of_col(l, c));
           }
         }
-        bishop_diag1_moves[p][m] = bb;
+        bishop_diag1_moves[p.to_int()][m] = bb;
 
         bb = 0;
         for (int i = 0; i < 2; ++i) {
           for (c = col + bdc2[i], l = lin + bdl2[i];
                is_valid_place(l, c) and tmp[c] == 0;
                c += bdc2[i], l += bdl2[i]) {
-            bb.set(make_place(l, c));
+            bb.set(Place::of_line_of_col(l, c));
           }
           if (is_valid_place(l, c)) {
-            bb.set(make_place(l, c));
+            bb.set(Place::of_line_of_col(l, c));
           }
         }
-        bishop_diag2_moves[p][m] = bb;
+        bishop_diag2_moves[p.to_int()][m] = bb;
       }
     }
   }
@@ -191,15 +194,15 @@ void init_bitboard() {
   /* init neighbor col table */
   for (int lin = 0; lin < 8; ++lin) {
     for (int col = 0; col < 8; ++col) {
-      int p = make_place(lin, col);
+      Place p = Place::of_line_of_col(lin, col);
       BitBoard bb = 0;
       for (int l = 0; l < 8; ++l) {
         if (col > 0)
-          bb.set(make_place(l, col - 1));
+          bb.set(Place::of_line_of_col(l, col - 1));
         if (col < 7)
-          bb.set(make_place(l, col + 1));
+          bb.set(Place::of_line_of_col(l, col + 1));
       }
-      neighbor_col[p] = bb;
+      neighbor_col[p.to_int()] = bb;
     }
   }
 }

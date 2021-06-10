@@ -14,7 +14,7 @@ CXXFLAGS+=-O3 -Wall -pipe -march=native -flto
 TESTS_INPUTS=$(wildcard tests/*.in)
 TESTS_OUTPUTS=$(patsubst %.in, %.out, ${TESTS_INPUTS})
 
-HEADERS=src/board_code.h src/board.h src/debug.h src/hash.h src/move.h src/random.h src/search.h src/bitboard.h Makefile
+HEADERS=$(wildcard src/*h)
 
 SOURCES=$(wildcard src/*.cpp)
 OBJECTS=$(shell find src | grep cpp$ | sed 's:^src:build:' | sed 's:cpp$$:o:')
