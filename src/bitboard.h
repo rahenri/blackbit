@@ -277,10 +277,10 @@ extern BitBoard knight_moves[64];
 extern BitBoard king_moves[64];
 
 /* not BB */
-inline int get_lin(int place) { return place >> 3; }
+inline int line_of_place(int place) { return place >> 3; }
 
 /* not BB */
-inline int get_col(int place) { return place & 7; }
+inline int col_of_place(int place) { return place & 7; }
 
 /* not BB */
 inline int make_place(int lin, int col) { return col | (lin << 3); }
@@ -322,7 +322,7 @@ inline BitBoard get_bishop_moves(int place, BitBoard blockers) {
 }
 
 inline BitBoard get_rook_moves(int place, BitBoard blockers) {
-  int lin = get_lin(place), col = get_col(place);
+  int lin = line_of_place(place), col = col_of_place(place);
   int lin_code = blockers.get_line(lin);
   int col_code = blockers.get_col(col);
 
@@ -347,7 +347,7 @@ inline BitBoard get_passed_pawn_mask(int color, int place) {
 inline BitBoard get_neighbor_col_mask(int place) { return neighbor_col[place]; }
 
 inline BitBoard get_col_mask(int place) {
-  return BitBoard(col_mask << get_col(place), col_mask << get_col(place));
+  return BitBoard(col_mask << col_of_place(place), col_mask << col_of_place(place));
 }
 
 inline void print_bitboard(FILE *f, BitBoard b) {

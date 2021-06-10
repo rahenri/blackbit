@@ -46,8 +46,8 @@ void init_bitboard() {
   }
 
   for (int p = 8; p < 64 - 8; ++p) {
-    int col = get_col(p);
-    int lin = get_lin(p);
+    int col = col_of_place(p);
+    int lin = line_of_place(p);
     /* movimento para frente */
     pawn_moves[BLACK][p].set(p - 8);
     pawn_moves[WHITE][p].set(p + 8);

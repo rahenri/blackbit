@@ -883,7 +883,7 @@ struct Board {
       for (int i = 0; i < size_table[t][PAWN]; ++i) {
         int p = peca_table[t][PAWN][i].place;
         if ((get_passed_pawn_mask(t, p) & bbPeca[op][PAWN]) == 0) {
-          pawn_score += passed_pawn_score[t][get_lin(p)];
+          pawn_score += passed_pawn_score[t][line_of_place(p)];
         }
         if ((get_neighbor_col_mask(p) & bbPeca[t][PAWN]) == 0) {
           pawn_score += isolated_pawn_score[t];
